@@ -2,20 +2,20 @@
 
   <PropertyGroup>
     <RootNamespace>JackDebug</RootNamespace>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
     <RootNamespace>JackDebug</RootNamespace>
     <UseWPF>true</UseWPF>
     <ImportedNamespaces>System.Drawing=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,JackDebug=True</ImportedNamespaces>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MahApps.Metro" Version="2.4.10" />
+    <PackageReference Include="MicroSerializationLibrary" Version="1.0.1" />
+    <PackageReference Include="MicroSerializationLibrary.JSON" Version="1.0.1" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
-
-  <ItemGroup>
-  </ItemGroup>
-
+	
   <ItemGroup>
     <Import Include="System.Drawing" />
   </ItemGroup>

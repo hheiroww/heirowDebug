@@ -1,4 +1,5 @@
 ﻿Imports System.Collections.Specialized
+Imports System.Runtime.InteropServices
 Imports System.Windows
 Imports MicroSerializationLibrary.Serialization
 
@@ -85,13 +86,7 @@ Public Class DebugValue
 
     Public ReadOnly Property Size As Long
         Get
-            If _Size = -1 Then
-                Using ms As New IO.MemoryStream
-                    Dim bf As New Runtime.Serialization.Formatters.Binary.BinaryFormatter()
-                    bf.Serialize(ms, Value)
-                    _Size = ms.Position
-                End Using
-            End If
+            If _Size = -1 Then _Size = Marshal.SizeOf(Value)
             Return _Size
         End Get
     End Property
