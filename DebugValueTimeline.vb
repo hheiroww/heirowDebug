@@ -39,7 +39,7 @@ Public Class DebugValueTimeline
     End Property
     Private _LowestValue As DebugValue
 
-    Public ReadOnly Property LastValue
+    Public ReadOnly Property LastValue As DebugValue
         Get
             If Values.Length > 0 Then
                 Return Values.Last()

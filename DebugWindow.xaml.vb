@@ -122,16 +122,17 @@ Public Class DebugWindow
         Dim splice As TimelineSplice = ctl.GetValuesWithin(Lower, Upper)
         Application.Current.Dispatcher.Invoke(
             Sub()
-                ClearPoints()
 
-                If splice.isGraphable AndAlso splice.Values.Count > 0 Then
+                If splice.isGraphable Then
+                    ClearPoints()
                     Dim l As Integer = splice.Values.Length - 1
                     Dim pointWidth As Double = PlotWidth / l
 
                     Dim isBoolean As Boolean = splice.Values.First().Flags.isBoolean
+
                     CreatePoint(DrawIndex, 0)
-                    If isBoolean Then CreatePoint(DrawIndex, PlotHeight)
-                    If isBoolean Then CreatePoint(DrawIndex, 0)
+                    CreatePoint(DrawIndex, PlotHeight)
+                    CreatePoint(DrawIndex, 0)
                     For i As Integer = 0 To splice.Values.Length - 1
                         Dim v As DebugValue = splice.Values(i)
                         Dim InterpolatedValue As Double
@@ -143,13 +144,8 @@ Public Class DebugWindow
                                 InterpolatedValue = 0
                             End If
                         Else
-                            If splice.LowestValue.Value = splice.HighestValue.Value Then
-                                InterpolatedValue = PlotHeight
-                            Else
-                                InterpolatedValue = Interpolate(v.Value, splice.LowestValue.Value, splice.HighestValue.Value, 0, PlotHeight)
-                            End If
+                            InterpolatedValue = Interpolate(v.Value, ctl.LowestValue.Value, ctl.HighestValue.Value, 0, PlotHeight)
                         End If
-
 
                         CreatePoint(DrawIndex, InterpolatedValue)
                         CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
@@ -162,8 +158,8 @@ Public Class DebugWindow
                         LowLabel.Text = "False"
                         HighLabel.Text = "True"
                     Else
-                        LowLabel.Text = splice.LowestValue.Value
-                        HighLabel.Text = splice.HighestValue.Value
+                        LowLabel.Text = ctl.LowestValue.Value
+                        HighLabel.Text = ctl.HighestValue.Value
                     End If
 
                 Else
@@ -337,8 +333,19 @@ Public Class DebugWindow
 
 #Region "Animations"
 
-    Public Sub ValueChangedAnim(TreeViewItem As TreeViewItem)
-        Application.Current.Dispatcher.Invoke(Sub() TreeViewItem.Background.BeginAnimation(SolidColorBrush.ColorProperty, ValueChangedAnimation))
+    Public Sub ValueChangedAnim(TreeViewItem As TreeViewItem, Indexies As Integer())
+        Application.Current.Dispatcher.Invoke(
+            Sub()
+                If Indexies IsNot Nothing AndAlso Indexies.Count > 0 Then
+                    For i As Integer = 0 To Indexies.Count - 1
+                        If TreeViewItem.Items.Count - 1 >= i Then
+                            Dim aTVI As TreeViewItem = TreeViewItem.Items(i)
+                            aTVI.Background.BeginAnimation(SolidColorBrush.ColorProperty, ValueChangedAnimation)
+                        End If
+                    Next
+                End If
+                TreeViewItem.Background.BeginAnimation(SolidColorBrush.ColorProperty, ValueChangedAnimation)
+            End Sub)
     End Sub
 
 #End Region
@@ -526,7 +533,7 @@ Public Class DebugWindow
                                                  Next
                                                  If Not SubItemSelected Then SetFieldTimeline(f)
                                              End Sub
-                    AddHandler TL.ValueChanged, Sub() Application.Current.Dispatcher.Invoke(Sub() TVI.Background.BeginAnimation(SolidColorBrush.ColorProperty, ValueChangedAnimation))
+                    AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, indexies As Integer()) ValueChangedAnim(TVI, indexies)
 
                     If v.Flags.isArray Or v.Flags.isList Or v.Flags.isDictionary Then
                         For i As Integer = 0 To v.Length - 1
@@ -650,7 +657,7 @@ Public Class DebugWindow
                                                  Next
                                                  If Not SubItemSelected Then SetPropertyTimeline(p)
                                              End Sub
-                    AddHandler TL.ValueChanged, Sub() Application.Current.Dispatcher.Invoke(Sub() TVI.Background.BeginAnimation(SolidColorBrush.ColorProperty, ValueChangedAnimation))
+                    AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(TVI, Indexies)
 
                     If v.Flags.isArray Then
                         Dim Dictionary As Boolean = IsDictionary(v.Value)
@@ -684,6 +691,8 @@ Public Class DebugWindow
     ''' <param name="parent"></param>
     ''' <returns></returns>
     Private Function IteratePropertySubValues(cw As DebugWatcher, ctl As Dictionary(Of PropertyReference, DebugValueTimeline), TVI As TreeViewItem, v As DebugValue, parent As DebugValue) As Integer
+        If v Is Nothing Then Return 0
+        If v.SubValues Is Nothing Then Return 0
         If v.SubValues.Length > 0 Then
             Dim TimelineDiff As Integer = 0
             For i As Integer = 0 To v.SubValues.Length - 1
@@ -702,7 +711,7 @@ Public Class DebugWindow
                     TimelineDiff += IteratePropertySubValues(cw, ctl, aTVI, ArrayItem, parent)
                     If Not ctl.ContainsKey(ArrayItem.PropertyReference) Then
                         Dim TL As New DebugValueTimeline(ArrayItem.PropertyReference)
-                        AddHandler TL.ValueChanged, Sub() ValueChangedAnim(aTVI)
+                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
                         ctl.Add(ArrayItem.PropertyReference, TL)
                     End If
                     AddHandler aTVI.Selected, Sub() SetPropertyTimeline(ArrayItem.PropertyReference)
@@ -712,7 +721,7 @@ Public Class DebugWindow
                     aTVI.Header = ArrayItem.Name
                     If Not ctl.ContainsKey(ArrayItem.PropertyReference) Then
                         Dim TL As New DebugValueTimeline(ArrayItem.PropertyReference)
-                        AddHandler TL.ValueChanged, Sub() ValueChangedAnim(aTVI)
+                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
                         ctl.Add(ArrayItem.PropertyReference, TL)
                         TL.AddValue(ArrayItem)
                     Else
@@ -737,6 +746,8 @@ Public Class DebugWindow
     ''' <param name="Parent"></param>
     ''' <returns></returns>
     Private Function IterateFieldSubValues(cw As DebugWatcher, ctl As Dictionary(Of FieldReference, DebugValueTimeline), TVI As TreeViewItem, v As DebugValue, Parent As DebugValue) As Integer
+        If v Is Nothing Then Return 0
+        If v.SubValues Is Nothing Then Return 0
         If v.SubValues.Length > 0 Then
             Dim TimelineDiff As Integer = 0
 
@@ -756,7 +767,7 @@ Public Class DebugWindow
                     TimelineDiff += IterateFieldSubValues(cw, ctl, aTVI, ArrayItem, Parent)
                     If Not ctl.ContainsKey(ArrayItem.FieldReference) Then
                         Dim TL As New DebugValueTimeline(ArrayItem.FieldReference)
-                        AddHandler TL.ValueChanged, Sub() ValueChangedAnim(aTVI)
+                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
                         ctl.Add(ArrayItem.FieldReference, TL)
                         TL.AddValue(ArrayItem)
                     End If
@@ -767,7 +778,7 @@ Public Class DebugWindow
                     aTVI.Header = ArrayItem.Name
                     If Not ctl.ContainsKey(ArrayItem.FieldReference) Then
                         Dim TL As New DebugValueTimeline(ArrayItem.FieldReference)
-                        AddHandler TL.ValueChanged, Sub() ValueChangedAnim(aTVI)
+                        AddHandler TL.ValueChanged, Sub(timeline As DebugValueTimeline, indexies As Integer()) ValueChangedAnim(aTVI, indexies)
                         ctl.Add(ArrayItem.FieldReference, TL)
                         TL.AddValue(ArrayItem)
                     Else

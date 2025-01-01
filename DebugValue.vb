@@ -1,5 +1,7 @@
 ﻿Imports System.Collections.Specialized
 Imports System.Runtime.InteropServices
+Imports System.Security.Policy
+Imports System.Text.Json.Serialization.Metadata
 Imports System.Windows
 Imports MicroSerializationLibrary.Serialization
 
@@ -111,7 +113,7 @@ Public Class DebugValue
             Return _Flags
         End Get
     End Property
-    Private _Flags As TypeFlags
+    Private _Flags As TypeFlags = EmptyTypeFlag
 
     Public ReadOnly Property Length As Integer
         Get
@@ -188,26 +190,53 @@ Public Class DebugValue
     End Function
 
     Public Function SetSubValues(SubValues As DebugValue()) As DebugValue
-        If SubValues IsNot Nothing Then _SubValues = SubValues
+        _SubValues = SubValues
         Return Me
     End Function
+
+    Public Function SetFlags(Flags As TypeFlags) As DebugValue
+        _Flags = Flags
+        Return Me
+    End Function
+
+    Public Shared Function GetTypeFlags(val As Object, t As Type) As TypeFlags
+        Dim Flags As New TypeFlags With {
+            .isArray = isArray(val),
+            .isList = IsList(val),
+            .isDictionary = IsDictionary(val),
+            .isSystem = t.Namespace.StartsWith("System"),
+            .isBoolean = t Is GetType(Boolean)
+        }
+        Flags.isNumeric = IsNumeric(val) Or Flags.isBoolean
+        Return Flags
+    End Function
+
+    Private Shared EmptyTypeFlag As New TypeFlags With {
+            .isArray = False,
+            .isList = False,
+            .isDictionary = False,
+            .isSystem = False,
+            .isBoolean = False,
+            .isNumeric = False
+        }
 
 #End Region
 
 #Region "General Logic"
 
-    Private Sub CheckIsNothing()
+    Private Function GetValue(Value As Object) As Object
         If IgnoreTypes.Contains(Type) Then
             _isNothing = True
         Else
-            _Value = Value
             _isNothing = _Value Is Nothing
+            Return Value
         End If
-    End Sub
+        Return Nothing
+    End Function
 
 #End Region
 
-    Public Sub New(Name As String, FieldReference As FieldReference, PropertyReference As PropertyReference, Type As Type, Value As Object,
+    Public Sub New(Name As String, FieldReference As FieldReference, PropertyReference As PropertyReference, Type As Type, Flags As TypeFlags, Value As Object,
                      Optional ValueChanged As Boolean = False,
                      Optional LastValue As Object = Nothing,
                      Optional SubValues As DebugValue() = Nothing,
@@ -215,7 +244,7 @@ Public Class DebugValue
 
         _Name = Name
         _Type = Type
-        CheckIsNothing()
+        _Value = GetValue(Value)
         _LastValue = LastValue
         _ValueChanged = ValueChanged
         _IsField = FieldReference IsNot Nothing

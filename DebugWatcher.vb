@@ -20,8 +20,6 @@ Public Class DebugWatcher
     Private LastFields As New Dictionary(Of FieldReference, DebugValue)
     Private LastProperties As New Dictionary(Of PropertyReference, DebugValue)
 
-    Private TypeFlagCache As New Dictionary(Of Type, TypeFlags)
-
 #End Region
 
 #Region "Events"
@@ -187,23 +185,6 @@ Public Class DebugWatcher
 
 #End Region
 
-    Private Function GetTypeFlags(val As Object, t As Type)
-        If TypeFlagCache.ContainsKey(t) Then
-            Return TypeFlagCache(t)
-        Else
-            Dim Flags As New TypeFlags() With {
-            .isArray = isArray(val),
-            .isList = IsList(val),
-            .isDictionary = IsDictionary(val),
-            .isSystem = t.Namespace.StartsWith("System"),
-            .isBoolean = t Is GetType(Boolean)
-        }
-            Flags.isNumeric = IsNumeric(val) Or Flags.isBoolean
-            TypeFlagCache.Add(t, Flags)
-            Return Flags
-        End If
-    End Function
-
     Private Function GetLastFieldValue(f As FieldReference) As DebugValue
         If LastFields IsNot Nothing AndAlso LastFields.ContainsKey(f) Then
             Return LastFields(f)
@@ -274,15 +255,16 @@ Public Class DebugWatcher
         Return Nothing
     End Function
 
-    Private Function DidValueChange(CurrentValue As Object, LastValue As DebugValue)
+    Private Function DidValueChange(CurrentValue As Object, LastValue As Object)
         Dim cValIsNothing As Boolean = CurrentValue Is Nothing
-        Dim lValIsNothing As Boolean = If(LastValue IsNot Nothing, LastValue.Value Is Nothing, True)
+        Dim lValIsNothing As Boolean = LastValue Is Nothing
         If cValIsNothing AndAlso Not lValIsNothing Then
             Return True
         ElseIf lValIsNothing AndAlso Not cValIsNothing Then
             Return True
         ElseIf cValIsNothing AndAlso lValIsNothing Then
-        ElseIf Not CurrentValue.Equals(LastValue.Value) Then
+            Return False
+        ElseIf Not CurrentValue.Equals(LastValue) Then
             Return True
         End If
         Return False
@@ -297,7 +279,9 @@ Public Class DebugWatcher
             For ArrayIndex As Integer = 0 To CurrentValue.Length - 1
                 Dim ArrayItem = CurrentValue(ArrayIndex)
 
-                If LastValue.Value.Length = CurrentValue.Length Then
+                If LastValue Is Nothing OrElse LastValue.Value Is Nothing Then
+                    Results.ChangedIndexies.Add(ArrayIndex)
+                ElseIf LastValue.Value.Length = CurrentValue.Length Then
                     Dim LastArrayItem = LastValue.Value(ArrayIndex)
                     Dim ArrayValueChanged As Boolean = DidValueChange(ArrayItem, LastArrayItem)
                     If ArrayValueChanged Then Results.ChangedIndexies.Add(ArrayIndex)
@@ -318,11 +302,13 @@ Public Class DebugWatcher
 
         Results.ValueChanged = DidValueChange(currentValueList, lastValueList)
 
-        If Results.ValueChanged Then
+        If Results.ValueChanged AndAlso currentValueList IsNot Nothing Then
             For ArrayIndex As Integer = 0 To currentValueList.Count - 1
                 Dim ArrayItem = currentValueList(ArrayIndex)
 
-                If lastValueList.Count = currentValueList.Count Then
+                If LastValue Is Nothing OrElse LastValue.Value Is Nothing Then
+                    Results.ChangedIndexies.Add(ArrayIndex)
+                ElseIf lastValueList.Count = currentValueList.Count Then
                     Dim LastArrayItem = lastValueList(ArrayIndex)
                     Dim ArrayValueChanged As Boolean = DidValueChange(ArrayItem, LastArrayItem)
                     If ArrayValueChanged Then Results.ChangedIndexies.Add(ArrayIndex)
@@ -348,11 +334,13 @@ Public Class DebugWatcher
 
         Results.ValueChanged = DidValueChange(currentValueList, lastValueList)
 
-        If Results.ValueChanged Then
+        If Results.ValueChanged AndAlso currentValueList IsNot Nothing AndAlso lastValueList IsNot Nothing Then
             For ArrayIndex As Integer = 0 To currentValueList.Count - 1
                 Dim ArrayItem = currentValueList(ArrayIndex)
 
-                If lastValueList.Count = currentValueList.Count Then
+                If LastValue Is Nothing OrElse LastValue.Value Is Nothing Then
+                    Results.ChangedIndexies.Add(ArrayIndex)
+                ElseIf lastValueList.Count = currentValueList.Count Then
                     Dim LastArrayItem = lastValueList(ArrayIndex)
                     Dim ArrayValueChanged As Boolean = DidValueChange(ArrayItem, LastArrayItem)
                     If ArrayValueChanged Then Results.ChangedIndexies.Add(ArrayIndex)
@@ -376,7 +364,7 @@ Public Class DebugWatcher
             Dim CurrentValue As Object = f.Info.GetValue(Instance)
 
             Dim t As Type = f.Info.FieldType
-            Dim Flags As TypeFlags = GetTypeFlags(CurrentValue, t)
+            Dim Flags As TypeFlags = DebugValue.GetTypeFlags(CurrentValue, t)
             Dim ValueChanged As Boolean = False
             Dim LastValue As DebugValue = GetLastFieldValue(f)
             Dim ChangedIndexies As Integer() = Nothing
@@ -393,7 +381,7 @@ Public Class DebugWatcher
                 ChangedIndexies = Results.ChangedIndexies
                 ValueChanged = Results.ValueChanged
             ElseIf Not DebugValue.IsIgnored(t) Then
-                ValueChanged = DidValueChange(CurrentValue, LastValue)
+                ValueChanged = DidValueChange(CurrentValue, If(LastValue IsNot Nothing, LastValue.Value, Nothing))
             End If
 
             Dim FieldSubValues As DebugValue() = GetFieldSubValues(Flags, CurrentValue, LastValue, Instance, ParentInstance)
@@ -404,15 +392,15 @@ Public Class DebugWatcher
             InvokeProgressChanged(Me, New ProgressChangedEventArgs(p, {"[" & Name & "] Field #" & Index & " Complete. ", ElapsedTime.ToString()}))
 
             If ValueChanged Then
-                Dim dv As New DebugValue(f.Info.Name, f, Nothing, t, CurrentValue, ValueChanged, LastValue, FieldSubValues, ChangedIndexies)
+                Dim dv As New DebugValue(f.Info.Name, f, Nothing, t, Flags, CurrentValue, ValueChanged, LastValue, FieldSubValues, ChangedIndexies)
                 UpdateLastFieldValue(f, dv)
                 L(i) = dv
             ElseIf Not LastFields.ContainsKey(f) Then
-                Dim dv As New DebugValue(f.Info.Name, f, Nothing, t, CurrentValue, ValueChanged, LastValue, FieldSubValues, ChangedIndexies)
+                Dim dv As New DebugValue(f.Info.Name, f, Nothing, t, Flags, CurrentValue, ValueChanged, LastValue, FieldSubValues, ChangedIndexies)
                 UpdateLastFieldValue(f, dv)
                 L(i) = dv
             Else
-                L(i) = LastFields(f).SetValueChanged(False).SetSubValues(FieldSubValues).SetChangedIndexies(ChangedIndexies)
+                L(i) = LastFields(f).SetValueChanged(False).SetSubValues(FieldSubValues).SetChangedIndexies(ChangedIndexies).SetFlags(Flags)
             End If
 
             Index += 1
@@ -442,7 +430,7 @@ Public Class DebugWatcher
             Dim StartTime As DateTime = DateTime.Now
             Dim CurrentValue As Object = ResolveValue(p, Instance)
             Dim t As Type = p.Info.PropertyType
-            Dim Flags As TypeFlags = GetTypeFlags(CurrentValue, t)
+            Dim Flags As TypeFlags = DebugValue.GetTypeFlags(CurrentValue, t)
             Dim ValueChanged As Boolean = False
             Dim LastValue As DebugValue = GetLastPropertyValue(p)
             Dim isIgnored As Boolean = DebugValue.IsIgnored(t)
@@ -461,7 +449,7 @@ Public Class DebugWatcher
                 ChangedIndexies = Results.ChangedIndexies
                 ValueChanged = Results.ValueChanged
             ElseIf Not isIgnored Then
-                ValueChanged = DidValueChange(CurrentValue, LastValue)
+                ValueChanged = DidValueChange(CurrentValue, If(LastValue IsNot Nothing, LastValue.Value, Nothing))
             End If
 
             Dim PropertySubValues As DebugValue() = GetPropertySubValues(Flags, CurrentValue, LastValue, Instance, ParentInstance)
@@ -469,7 +457,7 @@ Public Class DebugWatcher
             Dim ElapsedTime As TimeSpan = TimeSpan.FromMilliseconds((EndTime - StartTime).TotalMilliseconds)
             InvokeProgressChanged(Me, New ProgressChangedEventArgs(System.Math.Round(Index / ValueCount * 100, 2), {"[" & Name & "] Property #" & Index & " Complete. ", ElapsedTime.ToString()}))
             If ValueChanged Then
-                Dim dv As New DebugValue(p.Info.Name, Nothing, p, t, CurrentValue, ValueChanged, LastValue, PropertySubValues, ChangedIndexies)
+                Dim dv As New DebugValue(p.Info.Name, Nothing, p, t, Flags, CurrentValue, ValueChanged, LastValue, PropertySubValues, ChangedIndexies)
                 L(i) = dv
                 If LastProperties.ContainsKey(p) Then
                     LastProperties(p) = dv
@@ -477,7 +465,7 @@ Public Class DebugWatcher
                     LastProperties.Add(p, dv)
                 End If
             ElseIf Not LastProperties.ContainsKey(p) Then
-                Dim dv As New DebugValue(p.Info.Name, Nothing, p, t, CurrentValue, ValueChanged, LastValue, PropertySubValues, ChangedIndexies)
+                Dim dv As New DebugValue(p.Info.Name, Nothing, p, t, Flags, CurrentValue, ValueChanged, LastValue, PropertySubValues, ChangedIndexies)
                 If LastProperties.ContainsKey(p) Then
                     LastProperties(p) = dv
                 Else
