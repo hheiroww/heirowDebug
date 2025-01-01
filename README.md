@@ -3,7 +3,7 @@
 
 ## Setup is **Simple** when installing with NuGet.
 https://www.nuget.org/packages/JackDebug.WPF
-```
+```bash
  NuGet\Install-Package MicroSerializationLibrary -Version 1.0.2
 ```
 
