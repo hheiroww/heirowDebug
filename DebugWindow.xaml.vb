@@ -161,10 +161,6 @@ Public Class DebugWindow
                         LowLabel.Text = ctl.LowestValue.Value
                         HighLabel.Text = ctl.HighestValue.Value
                     End If
-
-                Else
-                    LowLabel.Text = ""
-                    HighLabel.Text = ""
                 End If
 
             End Sub)
