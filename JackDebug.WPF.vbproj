@@ -14,10 +14,11 @@
     <Description>Debug your WPF application easily with JackDebug.</Description>
     <PackageProjectUrl>https://github.com/JackOfFates/Jack-Debug</PackageProjectUrl>
     <PackageIcon>Dark_noBG_face_256.png</PackageIcon>
-    <PackageReleaseNotes>Bug fixes</PackageReleaseNotes>
+    <PackageReleaseNotes>Demo Gif Update</PackageReleaseNotes>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © JackOfFates 2024</Copyright>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
+    <PackageLicenseFile>License.txt</PackageLicenseFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +37,10 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <None Include="..\..\..\Desktop\License.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Include="..\..\..\source\repos\wShare\wView\Resources\Dark_noBG_face_256.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
