@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <RootNamespace>JackDebug</RootNamespace>
@@ -14,7 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Desktop\Pathogenix-micro-library-2697b2122669\Micro Serialization Library\Micro Serialization Library.vbproj" />
   </ItemGroup>
 
   <ItemGroup>
