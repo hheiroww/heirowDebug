@@ -1,17 +1,13 @@
 ﻿Imports System.Collections.ObjectModel
 Imports System.ComponentModel
 Imports System.Reflection
-Imports System.Security.Cryptography.Pkcs
 Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Controls
 Imports System.Windows.Media
 Imports System.Windows.Media.Animation
-Imports System.Windows.Shapes
-Imports System.Windows.Threading
 Imports System.Xml.Serialization
 Imports ControlzEx.Theming
-Imports LiveCharts.Events
 Imports MahApps.Metro.Controls
 Imports MicroSerializationLibrary
 Imports MicroSerializationLibrary.Serialization
@@ -301,7 +297,7 @@ Public Class DebugWindow
 
     Public Shared AnimationDuration As TimeSpan = TimeSpan.FromSeconds(0.75)
 
-    Public Shared DefaultBackground As Color = Color.FromRgb(37, 37, 37)
+    Public Shared DefaultBackground As Color = Color.FromArgb(255, 37, 37, 37)
 
     Public Shared ValueChangedAnimation As New ColorAnimation(Colors.LimeGreen, DefaultBackground, AnimationDuration)
 
