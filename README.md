@@ -1,7 +1,7 @@
 # JackDebug.WPF
 `JackDebug.WPF` is a object value visualizer you can use to hone-in on what your code is doing at **runtime**.
 
-# Setup.isSimple
+## Setup.*isSimple*
 https://www.nuget.org/packages/JackDebug.WPF
 ```bash
  dotnet add package JackDebug.WPF
