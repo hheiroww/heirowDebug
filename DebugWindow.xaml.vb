@@ -4,22 +4,50 @@ Imports System.Reflection
 Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Controls
+Imports System.Windows.Controls.Primitives
+Imports System.Windows.Forms.Integration
+Imports System.Windows.Input
 Imports System.Windows.Media
 Imports System.Windows.Media.Animation
 Imports System.Xml.Serialization
 Imports ControlzEx.Theming
+Imports JackDebug.WPF.Collections
+Imports JackDebug.WPF.Values
 Imports MahApps.Metro.Controls
 Imports MicroSerializationLibrary
 Imports MicroSerializationLibrary.Serialization
+Imports Windows.Media.Capture
 
 Public Class DebugWindow
     Inherits MetroWindow
 
 #Region "UI"
 
+    Private isUserChangingLower As Boolean = False,
+            isUserChangingUpper As Boolean = False,
+            Range As Integer
+
+    Public Sub New()
+
+        ' This call is required by the designer.
+        InitializeComponent()
+
+        ' Add any initialization after the InitializeComponent() call.
+
+        ThemeManager.Current.ChangeTheme(Me, "Dark.Red")
+        SetRange()
+    End Sub
+
+    Private Sub SetRange()
+        If isUserChangingLower Or isUserChangingUpper Then Return
+        Range = If(isAtBeginning And isAtEnd, MaxRange, Math.Min(Upper - Lower, MaxRange))
+    End Sub
+
     Private Sub DebugWindow_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
         _PlotWidth = Plot.ActualWidth
         _PlotHeight = Plot.ActualHeight
+        BackgroundWorker.RunWorkerAsync()
+        Enabled = False
     End Sub
 
     Private Sub DebugWindow_Closing(sender As Object, e As CancelEventArgs) Handles Me.Closing
@@ -38,16 +66,14 @@ Public Class DebugWindow
     End Sub
 
     Private Sub ToggleEnabled_Toggled(sender As Object, e As RoutedEventArgs) Handles ToggleEnabled.Toggled
-        For i As Integer = 0 To CurrentWatchers.Count - 1
-            Dim w As DebugWatcher = CurrentWatchers(i)
-            w.isEnabled = ToggleEnabled.IsOn
-        Next
+        Enabled = Not Enabled
     End Sub
 
     Private Sub Slider_LowerValueChanged(sender As Object, e As RoutedPropertyChangedEventArgs(Of Double)) Handles Slider.LowerValueChanged
         If IsMaxWidth Then
             e.Handled = True
-            Lower = Upper - MaxValues
+            Range = MaxRange
+            Lower = Upper - MaxRange
         End If
         _Lower = Slider.LowerValue
     End Sub
@@ -55,23 +81,62 @@ Public Class DebugWindow
     Private Sub Slider_UpperValueChanged(sender As Object, e As RoutedPropertyChangedEventArgs(Of Double)) Handles Slider.UpperValueChanged
         If IsMaxWidth Then
             e.Handled = True
-            Lower = Upper - MaxValues
+            Lower = Upper - Range
         End If
         _Upper = Slider.UpperValue
+    End Sub
+
+    Private Sub Slider_LowerThumbDragStarted(sender As Object, e As DragStartedEventArgs) Handles Slider.LowerThumbDragStarted
+        SetRange()
+        isUserChangingLower = True
+    End Sub
+
+    Private Sub Slider_LowerThumbDragCompleted(sender As Object, e As DragCompletedEventArgs) Handles Slider.LowerThumbDragCompleted
+        isUserChangingLower = False
+        SetRange()
+    End Sub
+
+    Private Sub Slider_UpperThumbDragStarted(sender As Object, e As DragStartedEventArgs) Handles Slider.UpperThumbDragStarted
+        SetRange()
+        isUserChangingUpper = True
+        KeepAtEnd = False
+    End Sub
+
+    Private Sub Slider_UpperThumbDragCompleted(sender As Object, e As DragCompletedEventArgs) Handles Slider.UpperThumbDragCompleted
+        isUserChangingUpper = False
+        SetRange()
+    End Sub
+
+    Private Sub Slider_LowerThumbDragDelta(sender As Object, e As DragDeltaEventArgs) Handles Slider.LowerThumbDragDelta
+        SetRange()
+    End Sub
+
+    Private Sub Slider_UpperThumbDragDelta(sender As Object, e As DragDeltaEventArgs) Handles Slider.UpperThumbDragDelta
+        SetRange()
+    End Sub
+
+    Private Sub Slider_CentralThumbDragCompleted(sender As Object, e As DragCompletedEventArgs) Handles Slider.CentralThumbDragCompleted
+        isUserChangingUpper = False
+        isUserChangingLower = False
+        SetRange()
+    End Sub
+
+    Private Sub Slider_CentralThumbDragStarted(sender As Object, e As DragStartedEventArgs) Handles Slider.CentralThumbDragStarted
+        SetRange()
+        isUserChangingUpper = True
+        isUserChangingLower = True
+        KeepAtEnd = False
     End Sub
 
 #End Region
 
 #Region "Caches"
 
-    Private ts As TimeSpan = TimeSpan.FromTicks(10000)
-    Private CurrentTimeline As Object
-    Private SelectedWatcher As Guid
+    Private ts As TimeSpan = TimeSpan.FromTicks(1000)
+    Private WithEvents CurrentTimeline As ValueTimeline
+    Private CurrentWatcher As DebugWatcher
 
-    Private TimelineKeys As New Dictionary(Of Guid, Integer)
-    Private CurrentWatchers As New List(Of DebugWatcher)
-    Private FieldTimelines As New List(Of Dictionary(Of FieldReference, DebugValueTimeline))
-    Private PropertyTimelines As New List(Of Dictionary(Of PropertyReference, DebugValueTimeline))
+    Private CurrentWatchers As New Dictionary(Of String, DebugWatcher)
 
 #End Region
 
@@ -84,82 +149,82 @@ Public Class DebugWindow
         _PlotHeight = Plot.ActualHeight
     End Sub
 
-    Public Sub DrawTimeline(cw As Guid)
+    Public Sub DrawTimeline(cw As String)
         If CurrentTimeline Is Nothing Then Return
 
-        Dim ctl As DebugValueTimeline = If(CurrentTimeline.GetType Is GetType(PropertyReference), PropertyTimeline(cw, CurrentTimeline), FieldTimeline(cw, CurrentTimeline))
+        Maximum = CurrentTimeline.Maximum - 1
 
-        If ctl Is Nothing Then Return
-
-        Dim isAtEnd As Boolean = Upper = Maximum
-        Dim isAtBeginning As Boolean = Lower = 0
-        Maximum = ctl.Maximum - 1
-
-        If isAtEnd Then
+        If KeepAtEnd Then
             Upper = Maximum
         End If
 
-        If isAtBeginning Then
-            If Not IsMaxWidth Then
-                Lower = 0
-            Else
-                Lower = Upper - MaxValues
+        If isAtEnd Then
+            If IsMaxWidth AndAlso Not isUserChangingLower Then
+                Range = MaxRange
+                Lower = Upper - Range
+            ElseIf Not isUserChangingLower Then
+                Lower = Upper - Range
             End If
-        ElseIf isAtEnd Then
+        End If
+
+        If isAtBeginning AndAlso Not isUserChangingLower Then
             If IsMaxWidth Then
-                Lower = Upper - MaxValues
+                Range = MaxRange
+                Lower = Upper - Range
             Else
-                Lower += TimelineDifference
+                Lower = 0
             End If
+            'ElseIf IsMaxWidth AndAlso isUserChangingLower Then
+            '    Upper = Math.Min(Lower + Range, MaxRange)
         End If
 
         If DrawIndex = Upper Then Return
 
-        Dim splice As TimelineSplice = ctl.GetValuesWithin(Lower, Upper)
-        Application.Current.Dispatcher.Invoke(
+        Dim splice As ValueTimelineSplice = CurrentTimeline.GetValuesWithin(Lower, Upper)
+
+
+        If splice.isGraphable Then
+            Application.Current.Dispatcher.Invoke(
             Sub()
+                ClearPoints()
+                Dim l As Integer = splice.Values.Length - 1
+                Dim pointWidth As Double = PlotWidth / l
 
-                If splice.isGraphable Then
-                    ClearPoints()
-                    Dim l As Integer = splice.Values.Length - 1
-                    Dim pointWidth As Double = PlotWidth / l
+                Dim isBoolean As Boolean = splice.Values.First().Flags.isBoolean
 
-                    Dim isBoolean As Boolean = splice.Values.First().Flags.isBoolean
+                CreatePoint(DrawIndex, 0)
+                CreatePoint(DrawIndex, PlotHeight)
+                CreatePoint(DrawIndex, 0)
+                For i As Integer = 0 To splice.Values.Length - 1
+                    Dim v As DebugValue = splice.Values(i)
+                    Dim InterpolatedValue As Double
 
-                    CreatePoint(DrawIndex, 0)
-                    CreatePoint(DrawIndex, PlotHeight)
-                    CreatePoint(DrawIndex, 0)
-                    For i As Integer = 0 To splice.Values.Length - 1
-                        Dim v As DebugValue = splice.Values(i)
-                        Dim InterpolatedValue As Double
-
-                        If isBoolean Then
-                            If v.Value Then
-                                InterpolatedValue = PlotHeight
-                            Else
-                                InterpolatedValue = 0
-                            End If
-                        Else
-                            InterpolatedValue = Interpolate(v.Value, ctl.LowestValue.Value, ctl.HighestValue.Value, 0, PlotHeight)
-                        End If
-
-                        CreatePoint(DrawIndex, InterpolatedValue)
-                        CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
-
-                        DrawIndex += pointWidth
-                    Next
-
-                    CreatePoint(DrawIndex, 0)
                     If isBoolean Then
-                        LowLabel.Text = "False"
-                        HighLabel.Text = "True"
+                        If v.Value Then
+                            InterpolatedValue = PlotHeight
+                        Else
+                            InterpolatedValue = 0
+                        End If
                     Else
-                        LowLabel.Text = ctl.LowestValue.Value
-                        HighLabel.Text = ctl.HighestValue.Value
+                        InterpolatedValue = Interpolate(v.Value, CurrentTimeline.LowestValue.Value, CurrentTimeline.HighestValue.Value, 0, PlotHeight)
                     End If
-                End If
 
+                    CreatePoint(DrawIndex, InterpolatedValue)
+                    CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
+
+                    DrawIndex += pointWidth
+                Next
+
+                CreatePoint(DrawIndex, 0)
+                If isBoolean Then
+                    LowLabel.Text = "False"
+                    HighLabel.Text = "True"
+                Else
+                    LowLabel.Text = CurrentTimeline.LowestValue.Value
+                    HighLabel.Text = CurrentTimeline.HighestValue.Value
+                End If
             End Sub)
+        End If
 
     End Sub
 
@@ -169,9 +234,33 @@ Public Class DebugWindow
 
 #End Region
 
+#Region "Shared Properties"
+    Public Shared Property MaxRange As Integer = 1000
+    Public Shared Property AnimationDuration As TimeSpan = TimeSpan.FromSeconds(0.75)
+    Public Shared Property DefaultBackground As Color = Color.FromArgb(255, 37, 37, 37)
+    Public Shared Property ValueChangedAnimation As New ColorAnimation(Colors.LimeGreen, DefaultBackground, AnimationDuration)
+
+#End Region
+
 #Region "Properties"
 
-    Public Property MaxValues As Integer = 1000
+    Public Property KeepAtEnd As Boolean = False
+    Private Property DrawIndex As Double = 0
+
+    Public ReadOnly Property isAtEnd As Boolean
+        Get
+            If Not isUserChangingUpper AndAlso Upper >= Maximum * 0.95 Then
+                KeepAtEnd = True
+            End If
+            Return Upper = Maximum
+        End Get
+    End Property
+
+    Public ReadOnly Property isAtBeginning As Boolean
+        Get
+            Return Lower = 0
+        End Get
+    End Property
 
     Public Property Enabled As Boolean
         Get
@@ -179,14 +268,14 @@ Public Class DebugWindow
         End Get
         Set(value As Boolean)
             _Enabled = value
-            If value Then
-                BackgroundWorker.RunWorkerAsync()
-            Else
-                BackgroundWorker.CancelAsync()
-            End If
+            For i As Integer = 0 To DebugWatcher.Watchers.Count - 1
+                Dim w As DebugWatcher = DebugWatcher.Watchers(i)
+                w.isEnabled = value
+            Next
+            If value Then BackgroundWorker.RunWorkerAsync() Else BackgroundWorker.CancelAsync()
         End Set
     End Property
-    Private _Enabled As Boolean = True
+    Private _Enabled As Boolean = False
 
     Public Property Realtime As Boolean
         Get
@@ -259,73 +348,37 @@ Public Class DebugWindow
 
     Public ReadOnly Property IsMaxWidth As Boolean
         Get
-            Return Upper - Lower > MaxValues
+            Return Upper - Lower > MaxRange
         End Get
     End Property
-
-    Public ReadOnly Property FieldTimeline(cw As Guid, f As FieldReference) As DebugValueTimeline
-        Get
-            If FieldTimelines.Count > 0 Then
-                If GetFieldTimeline(cw).ContainsKey(f) Then
-                    Return GetFieldTimeline(cw)(f)
-                Else
-                    Return Nothing
-                End If
-            Else
-                Return Nothing
-            End If
-        End Get
-    End Property
-
-    Public ReadOnly Property PropertyTimeline(cw As Guid, p As PropertyReference) As DebugValueTimeline
-        Get
-            If PropertyTimelines.Count > 0 Then
-                If GetPropertyTimeline(cw).ContainsKey(p) Then
-                    Return GetPropertyTimeline(cw)(p)
-                Else
-                    Return Nothing
-                End If
-            Else
-                Return Nothing
-            End If
-        End Get
-    End Property
-
-    Private Property DrawIndex As Double = 0
-
-    Private isAtEnd As Boolean = True
-
-    Public Shared AnimationDuration As TimeSpan = TimeSpan.FromSeconds(0.75)
-
-    Public Shared DefaultBackground As Color = Color.FromArgb(255, 37, 37, 37)
-
-    Public Shared ValueChangedAnimation As New ColorAnimation(Colors.LimeGreen, DefaultBackground, AnimationDuration)
 
 #End Region
 
 #Region "Tree View"
 
-    Private TreeViewItems As New Dictionary(Of Guid, TreeViewItem)
+    Private WatcherItems As New Dictionary(Of String, TreeViewItem)
+    Private TreeItems As New Dictionary(Of String, TreeViewItem)
 
-    Private Function CreateTreeItem(GUID As Guid, Type As Type, Header As String) As TreeViewItem
-        Dim NewValue As New TreeViewItem()
-        With NewValue
-            .Tag = GUID
-            .ToolTip = Type.Name
-            .Header = Header
-            .Background = New SolidColorBrush(DefaultBackground)
-        End With
+    Private Function CreateTreeItem(Type As Type, Header As String) As TreeViewItem
+        Dim NewValue As TreeViewItem = Nothing
+        Application.Current.Dispatcher.Invoke(
+            Sub()
+                NewValue = New TreeViewItem
+                With NewValue
+                    .ToolTip = Type.Name
+                    .Header = Header
+                    .Background = New SolidColorBrush(DefaultBackground)
+                End With
+            End Sub)
 
         Return NewValue
     End Function
-
-    Private WatcherItems As New Dictionary(Of Guid, WatcherDictionaryItem)
 
 #End Region
 
 #Region "Animations"
 
-    Public Sub ValueChangedAnim(TreeViewItem As TreeViewItem, Indexies As Integer())
+    Public Sub ValueChangedAnim(TreeViewItem As TreeViewItem, Indexies As List(Of Integer))
         Application.Current.Dispatcher.Invoke(
             Sub()
                 If Indexies IsNot Nothing AndAlso Indexies.Count > 0 Then
@@ -342,29 +395,23 @@ Public Class DebugWindow
 
 #End Region
 
-#Region "Get/Set Functions"
+#Region "Functions"
 
-    Private Function GetFieldTimeline(guid As Guid) As Dictionary(Of FieldReference, DebugValueTimeline)
-        If Not TimelineKeys.ContainsKey(guid) Then Return Nothing
-        Dim i As Integer = TimelineKeys(guid)
-        Return FieldTimelines.ElementAt(i)
-    End Function
-
-    Private Function GetPropertyTimeline(guid As Guid) As Dictionary(Of PropertyReference, DebugValueTimeline)
-        If Not TimelineKeys.ContainsKey(guid) Then Return Nothing
-        Dim i As Integer = TimelineKeys(guid)
-        Return PropertyTimelines.ElementAt(i)
-    End Function
-
-    Private Sub SetFieldTimeline(f As FieldReference)
+    Private Sub SetTimeline(cw As DebugWatcher, GUID As String)
         ClearPoints()
-        CurrentTimeline = f
+        CurrentWatcher = cw
+        CurrentTimeline = CurrentWatcher.Timelines(GUID)
     End Sub
 
-    Private Sub SetPropertyTimeline(p As PropertyReference)
-        ClearPoints()
-        CurrentTimeline = p
-    End Sub
+    Private Function SubItemSelected(TVI As TreeViewItem) As Boolean
+        For i As Integer = 0 To TVI.Items.Count - 1
+            Dim item As TreeViewItem = TVI.Items(i)
+            If item.IsSelected Then
+                Return True
+            End If
+        Next
+        Return False
+    End Function
 
 #End Region
 
@@ -379,408 +426,205 @@ Public Class DebugWindow
             Dim nCount As Integer = WatcherCount
             If nCount <> _WatcherCount Then
                 For i As Integer = 0 To DebugWatcher.Watchers.Count - 1
+                    If Not Enabled Then Exit For
                     Dim w As DebugWatcher = DebugWatcher.Watchers(i)
                     Dim t As Type = w.AttachedObject.GetType
-                    If Not CurrentWatchers.Contains(w) AndAlso Not IsImmutable(t) Then
-                        CurrentWatchers.Add(w)
+                    If Not CurrentWatchers.ContainsKey(w.GUID) AndAlso Not IsImmutable(t) Then
+                        CurrentWatchers.Add(w.GUID, w)
+                        Dim NewWatcher As TreeViewItem = CreateTreeItem(t, w.Name)
                         Application.Current.Dispatcher.Invoke(
                             Sub()
-                                Dim NewWatcher As TreeViewItem = CreateTreeItem(w.GUID, t, w.Name)
-
-                                If Not TreeViewItems.ContainsKey(w.GUID) Then
+                                If Not TreeItems.ContainsKey(w.GUID) Then
                                     Watchers.Items.Add(NewWatcher)
-                                    TreeViewItems.Add(w.GUID, NewWatcher)
+                                    WatcherItems.Add(w.GUID, NewWatcher)
 
-                                    Dim dItem As New WatcherDictionaryItem(NewWatcher)
-                                    WatcherItems.Add(w.GUID, dItem)
-                                    AddHandler w.FieldsCalculated, AddressOf Watcher_FieldsCalculated
-                                    AddHandler w.PropertiesCalculated, AddressOf Watcher_PropertiesCalculated
-                                    If Not TimelineKeys.ContainsKey(w.GUID) Then
-                                        Dim Index As Integer = TimelineKeys.Count
-                                        FieldTimelines.Add(New Dictionary(Of FieldReference, DebugValueTimeline))
-                                        PropertyTimelines.Add(New Dictionary(Of PropertyReference, DebugValueTimeline))
-                                        TimelineKeys.Add(w.GUID, Index)
-                                    End If
+                                    AddHandler w.OnValueCalculated, AddressOf ValueCalculated
                                 End If
-
                             End Sub)
                     End If
-                    If Not Enabled Then Exit For
                 Next
                 _WatcherCount = nCount
             End If
-
+            If NotNothing(CurrentWatcher) Then
+                DrawTimeline(CurrentWatcher.GUID)
+            End If
+            Thread.Sleep(1)
         Loop
     End Sub
 
 #End Region
 
-    Public Sub New()
-
-        ' This call is required by the designer.
-        InitializeComponent()
-
-        ' Add any initialization after the InitializeComponent() call.
-        BackgroundWorker.RunWorkerAsync()
-
-        ThemeManager.Current.ChangeTheme(Me, "Dark.Red")
-    End Sub
-
     ''' <summary>
-    ''' Field Values -> Visual Data
+    ''' Fires when the watcher has a new value.
     ''' </summary>
-    ''' <param name="cw"></param>
-    ''' <param name="Values"></param>
-    Private Sub Watcher_FieldsCalculated(cw As DebugWatcher, Values As DebugValue())
-        Dim ctl As Dictionary(Of FieldReference, DebugValueTimeline) = GetFieldTimeline(cw.GUID)
-        If ctl Is Nothing Then Return
+    ''' <param name="Watcher">Current Watcher</param>
+    ''' <param name="Value">Current Value</param>
+    Private Sub ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+        If Value Is Nothing Then Return
 
         Dim TimelineDiff As Integer = 0
-        For Each v As DebugValue In Values
-            If v Is Nothing Then Continue For
-            Dim f As FieldReference = v.FieldReference
-            Dim ValueItems As Dictionary(Of FieldReference, TreeViewItem) = WatcherItems(cw.GUID).Fields
 
-            If ValueItems.ContainsKey(f) Then
-                Dim lastVal
-                lastVal = ctl(f).LastValue
-                ctl(f).AddValue(v)
+        If TreeItems.ContainsKey(Value.GUID) Then
+            If CurrentTimeline IsNot Nothing AndAlso Value.GUID = CurrentTimeline.GUID Then TimelineDiff += 1
 
-                If f Is CurrentTimeline Then TimelineDiff += 1
-                If v.ValueChanged Then ctl(f).OnValueChangedEvent()
-
-                Application.Current.Dispatcher.Invoke(
-                    Sub()
-                        Dim TVI As TreeViewItem = ValueItems(f)
-                        If v.Flags.isArray Or v.Flags.isList Or v.Flags.isDictionary Then
-                            If v.Flags.isDictionary AndAlso v.KeyList IsNot Nothing Then
-                                For i As Integer = i To v.KeyList.Count - 1
-                                    Dim Header As String = "[" & i & "]" & v.KeyList(i) & ": " & v.ValueList(i).Header
-                                    If i > TVI.Items.Count - 1 Then
-                                        Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, v.ValueList(i).GetType, Header)
-                                        AddHandler aTVI.Selected, Sub() SetFieldTimeline(f)
-                                        TVI.Items.Add(aTVI)
-                                    Else
-                                        TVI.Items(i).Header = Header
-                                    End If
-                                Next
-                            ElseIf v.Flags.isList AndAlso v.Value IsNot Nothing Then
-                                For i As Integer = i To v.Length - 1
-                                    Dim Header As String = "[" & i & "] " & v.Value(i).GetType.Name
-                                    If i > TVI.Items.Count - 1 Then
-                                        Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, v.Value(i).GetType, Header)
-                                        AddHandler aTVI.Selected, Sub() SetFieldTimeline(f)
-                                        TVI.Items.Add(aTVI)
-                                    Else
-                                        TVI.Items(i).Header = Header
-                                    End If
-                                Next
-                            ElseIf v.Flags.isArray AndAlso v.Value IsNot Nothing Then
-                                For i As Integer = 0 To v.Length - 1
-                                    If i < 0 Then Exit For
-                                    If v.Length - 1 < i Then Exit For
-                                    Try
-                                        Dim ArrayItem As Object = v.Value(i)
-                                        Dim Header As String = "[" & i & "]" & ArrayItem.GetType.Name
-                                        If i > TVI.Items.Count - 1 Then
-                                            Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, Header)
-                                            AddHandler aTVI.Selected, Sub() SetFieldTimeline(f)
-                                            TVI.Items.Add(aTVI)
-                                        Else
-                                            TVI.Items(i).Header = Header
-                                        End If
-                                    Catch
-                                    End Try
-                                Next
-                            End If
-                            If TVI.Items.Count - 1 > v.Length - 1 Then
-                                For x As Integer = TVI.Items.Count - 1 To v.Length - 1 Step -1
-                                    If TVI.Items.Count > 0 Then
-                                        TVI.Items.RemoveAt(x)
-                                    Else
-                                        Exit For
-                                    End If
-                                Next
-                            End If
+            Dim TVI As TreeViewItem = TreeItems(Value.GUID)
+            If Value.Flags.isArray Or Value.Flags.isList Or Value.Flags.isDictionary Then
+                ''' TODO: 
+                ''' Split into seperate methods and/or functions
+                ''' Optimize Thread Switching
+                If Value.Flags.isDictionary AndAlso Value.KeyList IsNot Nothing Then
+                    For i As Integer = i To Value.KeyList.Count - 1
+                        Dim Index As Integer = i
+                        Dim Header As String = "[" & Index & "]" & Value.KeyList(Index) & ": " & Value.Type.Name
+                        If Index > TVI.Items.Count - 1 Then
+                            Dim aTVI As TreeViewItem = CreateTreeItem(Value.ValueList(Index).GetType, Header)
+                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
+                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
                         Else
-                            TimelineDiff += IterateFieldSubValues(cw, ctl, TVI, v, v)
-                            TVI.Header = v.Name
+                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items(Index).Header = Header)
                         End If
-                    End Sub)
+                    Next
+                ElseIf Value.Flags.isList AndAlso Value.Value IsNot Nothing Then
+                    For i As Integer = i To Value.Length - 1
+                        Dim Header As String = "[" & i & "] " & Value.Value(i).GetType.Name
+                        Dim Index As Integer = i
+                        If Index > TVI.Items.Count - 1 Then
+                            Dim aTVI As TreeViewItem = CreateTreeItem(Value.Value(Index).GetType, Header)
+                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
+                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
+                        Else
+                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items(Index).Header = Header)
+                        End If
+                    Next
+                ElseIf Value.Flags.isArray AndAlso Value.Value IsNot Nothing Then
+                    Dim ArrayType As String = ""
+                    For i As Integer = 0 To Value.Length - 1
+                        Dim Index As Integer = i
+                        If Index < 0 Then Exit For
+                        If Value.Length - 1 < Index Then Exit For
+                        Try
+                            Dim ArrayItem As Object = Value.Value(Index)
+                            If ArrayType = "" Then ArrayType = ArrayItem.GetType.Name
+                            Dim Header As String = "[" & Index & "]: " & ArrayType
+                            Dim ItemCount1 As Integer = 0
+
+                            Application.Current.Dispatcher.Invoke(Sub() ItemCount1 = TVI.Items.Count - 1)
+                            If Index > ItemCount1 Then
+                                Dim aTVI As TreeViewItem = CreateTreeItem(ArrayItem.GetType, Header)
+                                AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
+                                Application.Current.Dispatcher.Invoke(Sub()
+                                                                          Try
+                                                                              TVI.Items.Add(aTVI)
+                                                                          Catch ex As Exception
+                                                                              '''TODO: Not sure why this thows an out of bounds exception..
+                                                                          End Try
+                                                                      End Sub)
+                            Else
+                                Application.Current.Dispatcher.Invoke(Sub()
+                                                                          Try
+                                                                              TVI.Items(Index).Header = Header
+                                                                          Catch ex As Exception
+                                                                              '''TODO: Check for out of bounds if nessesary. Haven't seen it happen, yet..
+                                                                          End Try
+                                                                      End Sub)
+                            End If
+                        Catch
+                        End Try
+                    Next
+                End If
+                Dim ItemCount2 As Integer = 0
+                Application.Current.Dispatcher.Invoke(Sub() ItemCount2 = TVI.Items.Count - 1)
+                If ItemCount2 > Value.Length - 1 Then
+                    For x As Integer = ItemCount2 To Value.Length - 1 Step -1
+                        Dim Index As Integer = x
+                        If TVI.Items.Count > 0 Then
+                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.RemoveAt(Index))
+                        Else
+                            Exit For
+                        End If
+                    Next
+                End If
             Else
-                Dim TL As New DebugValueTimeline(f)
-                ctl.Add(f, TL)
-                Application.Current.Dispatcher.Invoke(
-                Sub()
-                    Dim TVI As TreeViewItem = CreateTreeItem(cw.GUID, v.Type, v.Name)
+                TimelineDiff += IterateValues(Watcher, TVI, Value, Value)
+                ''' TODO: 
+                ''' Show Values!!!!
+                'TVI.Header = v.Value.Tostring()
+            End If
+        Else
+            Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Value.Name)
+            AddHandler TVI.Selected, Sub()
+                                         If Not SubItemSelected(TVI) Then
+                                             SetTimeline(Watcher, Value.GUID)
+                                         End If
+                                     End Sub
 
-                    AddHandler TVI.Selected, Sub()
-                                                 Dim SubItemSelected As Boolean = False
-                                                 For i As Integer = 0 To TVI.Items.Count - 1
-                                                     Dim item As TreeViewItem = TVI.Items(i)
-                                                     If item.IsSelected Then
-                                                         SubItemSelected = True
-                                                         Exit For
-                                                     End If
-                                                 Next
-                                                 If Not SubItemSelected Then SetFieldTimeline(f)
-                                             End Sub
-                    AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, indexies As Integer()) ValueChangedAnim(TVI, indexies)
 
-                    If v.Flags.isArray Or v.Flags.isList Or v.Flags.isDictionary Then
-                        For i As Integer = 0 To v.Length - 1
-                            Dim ArrayItem As Object = v.Value(i)
-                            Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, ArrayItem.ToString())
-                            AddHandler aTVI.Selected, Sub() SetFieldTimeline(f)
-                            TVI.Items.Add(aTVI)
-                        Next
-                    End If
 
-                    TL.AddValue(v)
-                    ValueItems.Add(f, TVI)
-                    WatcherItems(cw.GUID).TreeViewItem.Items.Add(TVI)
-                End Sub)
+            If Value.Flags.isArray Or Value.Flags.isList Or Value.Flags.isDictionary Then
+                For i As Integer = 0 To Value.Length - 1
+                    Dim ArrayItem As Object = Value.Value(i)
+                    Dim aTVI As TreeViewItem = CreateTreeItem(ArrayItem.GetType, ArrayItem.GetType().Name)
+                    AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
+                    Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
+                Next
+            End If
+            If TreeItems.ContainsKey(Value.GUID) Then
+                TVI = Nothing
+                _TimelineDifference = TimelineDiff
+                Return
             End If
 
-
-        Next
-        _TimelineDifference = TimelineDiff
-        DrawTimeline(cw.GUID)
-    End Sub
-
-    ''' <summary>
-    ''' Property Values -> Visual Data
-    ''' </summary>
-    ''' <param name="cw"></param>
-    ''' <param name="Values"></param>
-    Private Sub Watcher_PropertiesCalculated(cw As DebugWatcher, Values As DebugValue())
-        Dim ctl As Dictionary(Of PropertyReference, DebugValueTimeline) = GetPropertyTimeline(cw.GUID)
-        If ctl Is Nothing Then Return
-
-        Dim TimelineDiff As Integer = 0
-        For Each v As DebugValue In Values
-            If v Is Nothing Then Continue For
-            Dim p As PropertyReference = v.PropertyReference
-
-            Dim ValueItems As Dictionary(Of PropertyReference, TreeViewItem) = WatcherItems(cw.GUID).Properties
-
-            If ValueItems.ContainsKey(p) Then
-                Dim lastVal
-                lastVal = ctl(p).LastValue
-
-                ctl(p).AddValue(v)
-
-                If p Is CurrentTimeline Then TimelineDiff += 1
-                If v.ValueChanged Then ctl(p).OnValueChangedEvent()
-
-                Application.Current.Dispatcher.Invoke(
-                    Sub()
-                        Dim TVI As TreeViewItem = ValueItems(p)
-                        If v.Flags.isArray Or v.Flags.isList Or v.Flags.isDictionary Then
-                            If v.Flags.isDictionary AndAlso v.KeyList IsNot Nothing Then
-                                For i As Integer = i To v.KeyList.Count - 1
-                                    Dim Header As String = "[" & i & "]" & v.KeyList(i) & ": " & v.ValueList(i).GetType.Name
-                                    If i > TVI.Items.Count - 1 Then
-                                        Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, v.ValueList(i).GetType, Header)
-                                        AddHandler aTVI.Selected, Sub() SetPropertyTimeline(p)
-                                        TVI.Items.Add(aTVI)
-                                    Else
-                                        TVI.Items(i).Header = Header
-                                    End If
-                                Next
-                            ElseIf v.Flags.isList AndAlso v.Value IsNot Nothing Then
-                                For i As Integer = i To v.Length - 1
-                                    Dim Header As String = "[" & i & "] " & v.Value(i).GetType.Name
-                                    If i > TVI.Items.Count - 1 Then
-                                        Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, v.Value(i).GetType, Header)
-                                        AddHandler aTVI.Selected, Sub() SetPropertyTimeline(p)
-                                        TVI.Items.Add(aTVI)
-                                    Else
-                                        TVI.Items(i).Header = Header
-                                    End If
-                                Next
-                            ElseIf v.Flags.isArray AndAlso v.Value IsNot Nothing Then
-                                For i As Integer = 0 To v.Length - 1
-                                    If i < 0 Then Exit For
-                                    If v.Length - 1 < i Then Exit For
-                                    Try
-                                        Dim ArrayItem As Object = v.Value(i)
-                                        Dim Header As String = "[" & i & "]" & ArrayItem.GetType.Name
-                                        If i > TVI.Items.Count - 1 Then
-                                            Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, Header)
-                                            AddHandler aTVI.Selected, Sub() SetPropertyTimeline(p)
-                                            TVI.Items.Add(aTVI)
-                                        Else
-                                            TVI.Items(i).Header = Header
-                                        End If
-                                    Catch
-                                    End Try
-                                Next
-                            End If
-                            If TVI.Items.Count - 1 > v.Length - 1 Then
-                                For x As Integer = TVI.Items.Count - 1 To v.Length - 1 Step -1
-                                    If TVI.Items.Count > 0 Then
-                                        TVI.Items.RemoveAt(x)
-                                    Else
-                                        Exit For
-                                    End If
-                                Next
-                            End If
-                        Else
-                            TimelineDiff += IteratePropertySubValues(cw, ctl, TVI, v, v)
-                            TVI.Header = v.Name
-                        End If
-                    End Sub)
-            Else
-                Dim TL As New DebugValueTimeline(p)
-                ctl.Add(p, TL)
-                Application.Current.Dispatcher.Invoke(
-                Sub()
-                    Dim TVI As TreeViewItem = CreateTreeItem(cw.GUID, v.Type, v.Name)
-
-                    AddHandler TVI.Selected, Sub()
-                                                 Dim SubItemSelected As Boolean = False
-                                                 For i As Integer = 0 To TVI.Items.Count - 1
-                                                     Dim item As TreeViewItem = TVI.Items(i)
-                                                     If item.IsSelected Then
-                                                         SubItemSelected = True
-                                                         Exit For
-                                                     End If
-                                                 Next
-                                                 If Not SubItemSelected Then SetPropertyTimeline(p)
-                                             End Sub
-                    AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(TVI, Indexies)
-
-                    If v.Flags.isArray Then
-                        Dim Dictionary As Boolean = IsDictionary(v.Value)
-                        If Not Dictionary Then
-                            For i As Integer = 0 To v.Length - 1
-                                Dim ArrayItem As Object = v.Value(i)
-                                Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, ArrayItem.Header)
-                                TVI.Items.Add(aTVI)
-                            Next
-                        End If
-                    End If
-                    TL.AddValue(v)
-                    ValueItems.Add(p, TVI)
-                    WatcherItems(cw.GUID).TreeViewItem.Items.Add(TVI)
-                End Sub)
-            End If
-
-
-        Next
-        _TimelineDifference = TimelineDiff
-        Application.Current.Dispatcher.Invoke(Sub() DrawTimeline(cw.GUID))
-    End Sub
-
-    ''' <summary>
-    ''' Iterate a Properties Child Values & Update UI
-    ''' </summary>
-    ''' <param name="cw"></param>
-    ''' <param name="ctl"></param>
-    ''' <param name="TVI"></param>
-    ''' <param name="v"></param>
-    ''' <param name="parent"></param>
-    ''' <returns></returns>
-    Private Function IteratePropertySubValues(cw As DebugWatcher, ctl As Dictionary(Of PropertyReference, DebugValueTimeline), TVI As TreeViewItem, v As DebugValue, parent As DebugValue) As Integer
-        If v Is Nothing Then Return 0
-        If v.SubValues Is Nothing Then Return 0
-        If v.SubValues.Length > 0 Then
-            Dim TimelineDiff As Integer = 0
-            For i As Integer = 0 To v.SubValues.Length - 1
-                Dim ArrayItem As DebugValue = v.SubValues(i)
-
-                If ArrayItem Is Nothing Then Continue For
-
-                If ArrayItem.Value Is parent.Value Then
-                    Continue For
-                End If
-
-                If ArrayItem IsNot Nothing AndAlso ArrayItem.PropertyReference Is CurrentTimeline Then TimelineDiff += 1
-
-                If i > TVI.Items.Count - 1 Then
-                    Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, ArrayItem.Name)
-                    TimelineDiff += IteratePropertySubValues(cw, ctl, aTVI, ArrayItem, parent)
-                    If Not ctl.ContainsKey(ArrayItem.PropertyReference) Then
-                        Dim TL As New DebugValueTimeline(ArrayItem.PropertyReference)
-                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
-                        ctl.Add(ArrayItem.PropertyReference, TL)
-                    End If
-                    AddHandler aTVI.Selected, Sub() SetPropertyTimeline(ArrayItem.PropertyReference)
-                    TVI.Items.Add(aTVI)
-                Else
-                    Dim aTVI As TreeViewItem = TVI.Items(i)
-                    aTVI.Header = ArrayItem.Name
-                    If Not ctl.ContainsKey(ArrayItem.PropertyReference) Then
-                        Dim TL As New DebugValueTimeline(ArrayItem.PropertyReference)
-                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
-                        ctl.Add(ArrayItem.PropertyReference, TL)
-                        TL.AddValue(ArrayItem)
-                    Else
-                        ctl(ArrayItem.PropertyReference).AddValue(ArrayItem)
-                    End If
-                    TimelineDiff += IteratePropertySubValues(cw, ctl, aTVI, ArrayItem, parent)
-                End If
-                ctl(ArrayItem.PropertyReference).AddValue(ArrayItem)
-            Next
-            Return TimelineDiff
+            TreeItems.Add(Value.GUID, TVI)
+            AddHandler Watcher.Timelines(Value.GUID).ValueChanged, Sub(Timeline As ValueTimeline, ChangedValue As DebugValue, ArrayIndexies As List(Of Integer)) ValueChangedAnim(TVI, ArrayIndexies)
+            Application.Current.Dispatcher.Invoke(
+                Sub() WatcherItems(Watcher.GUID).Items.Add(TVI))
         End If
-        Return 0
-    End Function
+
+        _TimelineDifference = TimelineDiff
+    End Sub
 
     ''' <summary>
     ''' Iterate a Fields Child Values & Update UI
     ''' </summary>
     ''' <param name="cw"></param>
-    ''' <param name="ctl"></param>
     ''' <param name="TVI"></param>
-    ''' <param name="v"></param>
+    ''' <param name="CurrentValue"></param>
     ''' <param name="Parent"></param>
     ''' <returns></returns>
-    Private Function IterateFieldSubValues(cw As DebugWatcher, ctl As Dictionary(Of FieldReference, DebugValueTimeline), TVI As TreeViewItem, v As DebugValue, Parent As DebugValue) As Integer
-        If v Is Nothing Then Return 0
-        If v.SubValues Is Nothing Then Return 0
-        If v.SubValues.Length > 0 Then
+    Private Function IterateValues(cw As DebugWatcher, TVI As TreeViewItem, CurrentValue As DebugValue, Parent As DebugValue) As Integer
+        If CurrentValue Is Nothing Then Return 0
+        If CurrentValue.Children Is Nothing Then Return 0
+        If CurrentValue.Children.Length > 0 Then
             Dim TimelineDiff As Integer = 0
 
-            For i As Integer = 0 To v.SubValues.Length - 1
-                Dim ArrayItem As DebugValue = v.SubValues(i)
+            For i As Integer = 0 To CurrentValue.Children.Length - 1
+                Dim ArrayItem As DebugValue = CurrentValue.Children.Values(i)
+
                 If ArrayItem Is Nothing Then Continue For
+                If Not ArrayItem.ValueChanged Then Continue For
 
                 If ArrayItem.Value Is Parent.Value Then
                     Continue For
                 End If
 
-                If ArrayItem.FieldReference Is CurrentTimeline Then TimelineDiff += 1
+                If ArrayItem.GUID = CurrentTimeline.GUID Then TimelineDiff += 1
 
                 If i > TVI.Items.Count - 1 Then
-                    Dim aTVI As TreeViewItem = CreateTreeItem(cw.GUID, ArrayItem.GetType, ArrayItem.Name)
-
-                    TimelineDiff += IterateFieldSubValues(cw, ctl, aTVI, ArrayItem, Parent)
-                    If Not ctl.ContainsKey(ArrayItem.FieldReference) Then
-                        Dim TL As New DebugValueTimeline(ArrayItem.FieldReference)
-                        AddHandler TL.ValueChanged, Sub(Timeline As DebugValueTimeline, Indexies As Integer()) ValueChangedAnim(aTVI, Indexies)
-                        ctl.Add(ArrayItem.FieldReference, TL)
-                        TL.AddValue(ArrayItem)
-                    End If
-                    AddHandler aTVI.Selected, Sub() SetFieldTimeline(ArrayItem.FieldReference)
-                    TVI.Items.Add(aTVI)
+                    Dim aTVI As TreeViewItem = Nothing
+                    Application.Current.Dispatcher.Invoke(Sub()
+                                                              aTVI = CreateTreeItem(ArrayItem.GetType, ArrayItem.Name)
+                                                              AddHandler aTVI.Selected, Sub() SetTimeline(cw, CurrentValue.GUID)
+                                                              TVI.Items.Add(aTVI)
+                                                          End Sub)
+                    TimelineDiff += IterateValues(cw, aTVI, ArrayItem, Parent)
                 Else
-                    Dim aTVI As TreeViewItem = TVI.Items(i)
-                    aTVI.Header = ArrayItem.Name
-                    If Not ctl.ContainsKey(ArrayItem.FieldReference) Then
-                        Dim TL As New DebugValueTimeline(ArrayItem.FieldReference)
-                        AddHandler TL.ValueChanged, Sub(timeline As DebugValueTimeline, indexies As Integer()) ValueChangedAnim(aTVI, indexies)
-                        ctl.Add(ArrayItem.FieldReference, TL)
-                        TL.AddValue(ArrayItem)
-                    Else
-                        ctl(ArrayItem.FieldReference).AddValue(ArrayItem)
-                    End If
-
-                    TimelineDiff += IterateFieldSubValues(cw, ctl, aTVI, ArrayItem, Parent)
+                    Dim aTVI As TreeViewItem = Nothing
+                    Dim index As Integer = i
+                    Application.Current.Dispatcher.Invoke(Sub() aTVI = TVI.Items(index))
+                    TimelineDiff += IterateValues(cw, aTVI, ArrayItem, Parent)
                 End If
-
             Next
+
             Return TimelineDiff
         End If
         Return 0

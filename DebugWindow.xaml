@@ -28,8 +28,8 @@
             <TextBlock x:Name="HighLabel" Foreground="WhiteSmoke" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,5,5,0">100</TextBlock>
         </Grid>
         <Grid x:Name="TimelineGrid" Background="#FF212121" Grid.Column="1" Grid.Row="1">
-            <mah:RangeSlider x:Name="Slider" Margin="10,10,10,10" MinRangeWidth="0" UpperValue="100" MinRange="10" SmallChange="1" LowerValue="75"/>
+            <mah:RangeSlider x:Name="Slider" Margin="10,10,10,10" MinRangeWidth="0" UpperValue="100" MinRange="10" SmallChange="1"/>
         </Grid>
-        <mah:ToggleSwitch x:Name="ToggleEnabled" Header="Debugging" Grid.Row="1" Width="215" IsOn="True" Margin="7,5,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Left"/>
+        <mah:ToggleSwitch x:Name="ToggleEnabled" Header="Debugging" Grid.Row="1" Width="215" Margin="7,5,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Left"/>
     </Grid>
 </mah:MetroWindow>

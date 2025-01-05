@@ -1,0 +1,31 @@
+﻿Namespace Values
+    Public Class DebugValueUpdate
+
+        Public ReadOnly Property ValueChanged As Boolean
+            Get
+                Return _ValueChanged
+            End Get
+        End Property
+        Private _ValueChanged As Boolean = False
+
+        Public ReadOnly Property LastValue As DebugValue
+            Get
+                Return _LastValue
+            End Get
+        End Property
+        Private _LastValue As DebugValue
+
+        Public ReadOnly Property CurrentValue As DebugValue
+            Get
+                Return _CurrentValue
+            End Get
+        End Property
+        Private _CurrentValue As DebugValue
+
+        Public Sub New(LastValue As DebugValue, CurrentValue As DebugValue, ValueChanged As Boolean)
+            _LastValue = LastValue
+            _CurrentValue = CurrentValue
+            _ValueChanged = ValueChanged
+        End Sub
+    End Class
+End Namespace
