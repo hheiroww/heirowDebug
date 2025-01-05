@@ -196,7 +196,7 @@ Public Class DebugWatcher
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.Now
             Dim f As FieldReference = Fields(index)
-            Dim v As DebugValue = CurrentFieldValue(f).Clone()
+            Dim v As DebugValue = CurrentFieldValue(f)
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then
                     SyncLock (Timelines)
@@ -222,7 +222,7 @@ Public Class DebugWatcher
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.Now
             Dim p As PropertyReference = Properties(index)
-            Dim v As DebugValue = CurrentPropertyValue(p).Clone()
+            Dim v As DebugValue = CurrentPropertyValue(p)
 
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then

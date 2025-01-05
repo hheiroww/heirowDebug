@@ -16,10 +16,10 @@
     <Description>Debug your WPF application easily with JackDebug.</Description>
     <PackageProjectUrl>https://github.com/JackOfFates/Jack-Debug</PackageProjectUrl>
     <PackageIcon>Dark_noBG_face_256.png</PackageIcon>
-    <PackageReleaseNotes>Demo Gif Update</PackageReleaseNotes>
+    <PackageReleaseNotes>100% CPU Utilization fix due to .Clone() used when it shouldn't be.</PackageReleaseNotes>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © JackOfFates 2024</Copyright>
-    <Version>1.1.0</Version>
+    <Version>1.1.0.2</Version>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageReadmeFile>JackDebug_README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -67,6 +67,13 @@
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.vb</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+	
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -136,17 +136,6 @@ Namespace Values
         End Property
         Private _ValueChanged As Boolean
 
-        Public Property Size As Long
-            Get
-                If _Size = -1 Then _Size = Marshal.SizeOf(Value)
-                Return _Size
-            End Get
-            Set(value As Long)
-                _Size = value
-            End Set
-        End Property
-        Private _Size As Long = -1
-
         Public Property IsField As Boolean
             Get
                 Return _IsField
@@ -419,11 +408,11 @@ Namespace Values
         Public Sub UpdateValue(Instance As Object, r As Object)
             Dim SafeValue As SafeValue
 
-            If r.GetType() Is GetType(FieldReference) Then
+            If IsField Then
                 SafeValue = New SafeValue(DirectCast(r, FieldReference).Info.GetValue(Instance))
                 _FieldReference = r
                 _IsField = True
-            Else
+            ElseIf IsProperty Then
                 SafeValue = New SafeValue(DirectCast(r, PropertyReference).Info.GetValue(Instance))
                 _PropertyReference = r
                 _IsProperty = True
@@ -432,32 +421,34 @@ Namespace Values
             Dim CurrentValue = SafeValue.Value
 
             Dim ValueChanged As Boolean = False
-            _Type = CurrentValue.GetType()
-            _Flags = GetTypeFlags(SafeValue, Type)
+            If Not SafeValue.IsNothing Then
+                _Type = CurrentValue.GetType()
+                _Flags = GetTypeFlags(SafeValue, Type)
 
-            If Flags.isArray Then
-                Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
-                _ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Flags.isList Then
-                Dim Results As ArrayCompareResults = CompareList(CurrentValue, LastValue)
-                _ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Flags.isDictionary Then
-                Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, LastValue)
-                _ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Flags.isNumeric Then
-                ValueChanged = CurrentValue <> LastValue
-            ElseIf Not Flags.isIgnored Then
-                ValueChanged = DidValueChange(Value, LastValue)
+                If Flags.isArray Then
+                    Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
+                    _ChangedIndexies = Results.ChangedIndexies
+                    ValueChanged = Results.ValueChanged
+                ElseIf Flags.isList Then
+                    Dim Results As ArrayCompareResults = CompareList(CurrentValue, LastValue)
+                    _ChangedIndexies = Results.ChangedIndexies
+                    ValueChanged = Results.ValueChanged
+                ElseIf Flags.isDictionary Then
+                    Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, LastValue)
+                    _ChangedIndexies = Results.ChangedIndexies
+                    ValueChanged = Results.ValueChanged
+                ElseIf Flags.isNumeric Then
+                    ValueChanged = CurrentValue <> LastValue
+                ElseIf Not Flags.isIgnored Then
+                    ValueChanged = DidValueChange(Value, LastValue)
+                End If
+
+                If Not Flags.isSystem AndAlso ChildrenNotIndexed Then
+                    UpdateChildReferences(CurrentValue)
+                End If
+
+                SetValueChanged(ValueChanged)
             End If
-
-            If Not Flags.isSystem AndAlso ChildrenNotIndexed Then
-                UpdateChildReferences(CurrentValue)
-            End If
-
-            SetValueChanged(ValueChanged)
 
             _LastValue = Value
             _Value = CurrentValue
