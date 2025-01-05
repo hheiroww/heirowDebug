@@ -200,7 +200,7 @@ Public Class DebugWatcher
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then
                     SyncLock (Timelines)
-                        Timelines(v.GUID).AddValue(v)
+                        Timelines(v.GUID).AddValue(v.Clone())
                     End SyncLock
                     RaiseEvent OnValueCalculated(Me, v)
                 End If
@@ -227,7 +227,7 @@ Public Class DebugWatcher
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then
                     SyncLock (Timelines)
-                        Timelines(v.GUID).AddValue(v)
+                        Timelines(v.GUID).AddValue(v.Clone())
                     End SyncLock
                     RaiseEvent OnValueCalculated(Me, v)
                 End If
@@ -270,6 +270,7 @@ Public Class DebugWatcher
                     Timelines.Add(newValue.GUID, New ValueTimeline(newValue.GUID))
                 End SyncLock
             End If
+
             Return FieldValues(f)
         End SyncLock
     End Function

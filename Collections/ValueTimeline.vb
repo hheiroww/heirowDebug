@@ -85,7 +85,6 @@ Namespace Collections
             End If
         End Sub
         Public Sub Dispose() Implements IDisposable.Dispose
-            ' Do not change this code. Put cleanup code in 'Dispose(disposing As Boolean)' method
             Dispose(disposing:=True)
             GC.SuppressFinalize(Me)
         End Sub

@@ -14,14 +14,15 @@
     <Title>Jack Debug (WPF)</Title>
     <Company>JackOfFates</Company>
     <Description>Debug your WPF application easily with JackDebug.</Description>
-    <PackageProjectUrl>https://github.com/JackOfFates/Jack-Debug</PackageProjectUrl>
+    <PackageProjectUrl>https://JackOfAllFates.com/</PackageProjectUrl>
     <PackageIcon>Dark_noBG_face_256.png</PackageIcon>
-    <PackageReleaseNotes>100% CPU Utilization fix due to .Clone() used when it shouldn't be.</PackageReleaseNotes>
+    <PackageReleaseNotes>Fixed a no-display issue.</PackageReleaseNotes>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © JackOfFates 2024</Copyright>
-    <Version>1.1.0.2</Version>
+    <Version>1.1.0.3</Version>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageReadmeFile>JackDebug_README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/JackOfFates/Jack-Debug</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

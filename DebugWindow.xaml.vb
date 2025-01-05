@@ -512,21 +512,23 @@ Public Class DebugWindow
                             If Index > ItemCount1 Then
                                 Dim aTVI As TreeViewItem = CreateTreeItem(ArrayItem.GetType, Header)
                                 AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
-                                Application.Current.Dispatcher.Invoke(Sub()
-                                                                          Try
-                                                                              TVI.Items.Add(aTVI)
-                                                                          Catch ex As Exception
-                                                                              '''TODO: Not sure why this thows an out of bounds exception..
-                                                                          End Try
-                                                                      End Sub)
+                                Application.Current.Dispatcher.Invoke(
+                                    Sub()
+                                        Try
+                                            TVI.Items.Add(aTVI)
+                                        Catch ex As Exception
+                                            '''TODO: Not sure why this thows an out of bounds exception..
+                                        End Try
+                                    End Sub)
                             Else
-                                Application.Current.Dispatcher.Invoke(Sub()
-                                                                          Try
-                                                                              TVI.Items(Index).Header = Header
-                                                                          Catch ex As Exception
-                                                                              '''TODO: Check for out of bounds if nessesary. Haven't seen it happen, yet..
-                                                                          End Try
-                                                                      End Sub)
+                                Application.Current.Dispatcher.Invoke(
+                                    Sub()
+                                        Try
+                                            TVI.Items(Index).Header = Header
+                                        Catch ex As Exception
+                                            '''TODO: Check for out of bounds if nessesary. Haven't seen it happen, yet..
+                                        End Try
+                                    End Sub)
                             End If
                         Catch
                         End Try

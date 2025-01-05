@@ -406,7 +406,7 @@ Namespace Values
         End Function
 
         Public Sub UpdateValue(Instance As Object, r As Object)
-            Dim SafeValue As SafeValue
+            Dim SafeValue As New SafeValue(Nothing)
 
             If IsField Then
                 SafeValue = New SafeValue(DirectCast(r, FieldReference).Info.GetValue(Instance))
@@ -447,7 +447,7 @@ Namespace Values
                     UpdateChildReferences(CurrentValue)
                 End If
 
-                SetValueChanged(ValueChanged)
+                SetValueChanged(ValueChanged).SetFlags(_Flags)
             End If
 
             _LastValue = Value
@@ -500,7 +500,7 @@ Namespace Values
         End Sub
 
         Public Sub Dispose() Implements IDisposable.Dispose
-            ' Do not change this code. Put cleanup code in 'Dispose(disposing As Boolean)' method
+
             Dispose(disposing:=True)
             GC.SuppressFinalize(Me)
         End Sub
