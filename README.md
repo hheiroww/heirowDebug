@@ -34,7 +34,7 @@ https://www.nuget.org/packages/JackDebug.WPF
 ```
 
 # Thats it!
-![Demo](https://raw.githubusercontent.com/JackOfFates/Jack-Debug/refs/heads/main/demo%201100.gif)
+![Demo](https://raw.githubusercontent.com/JackOfFates/Jack-Debug/refs/heads/main/demo1100.gif
 
 ## Contributing
 
