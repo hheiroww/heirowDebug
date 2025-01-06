@@ -11,6 +11,8 @@ Imports System.Text.RegularExpressions
 Imports System.Runtime.InteropServices
 Imports JackDebug.WPF.Values
 Imports JackDebug.WPF.Collections
+Imports MicroSerializationLibrary.Networking
+Imports JackDebug.WPF.Async
 
 Public Class DebugWatcher
 
@@ -69,7 +71,7 @@ Public Class DebugWatcher
     End Property
     Private _AttachedObject As Object
 
-    Public Property Recursive As Boolean
+    Public Property IsRecursive As Boolean
         Get
             Return _Recursive
         End Get
@@ -143,6 +145,8 @@ Public Class DebugWatcher
 #Region "Initializers"
 
     Public Sub New(AttachedTo As Object)
+        Dim CoreCount As Integer = Environment.ProcessorCount
+        ThreadPool.SetMaxThreads(CoreCount, CoreCount)
         Initialize(AttachedTo)
     End Sub
 
@@ -192,11 +196,11 @@ Public Class DebugWatcher
 
     Private Workers As New List(Of BackgroundWorker)
 
-    Private Sub FieldWorker_Calculate(index As Integer)
+    Private Async Sub FieldWorker_Calculate(index As Integer)
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.Now
             Dim f As FieldReference = Fields(index)
-            Dim v As DebugValue = CurrentFieldValue(f)
+            Dim v As DebugValue = Await CurrentFieldValue(f)
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then
                     SyncLock (Timelines)
@@ -218,11 +222,11 @@ Public Class DebugWatcher
         Loop
     End Sub
 
-    Private Sub PropertyWorker_Calculate(index As Integer)
+    Private Async Sub PropertyWorker_Calculate(index As Integer)
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.Now
             Dim p As PropertyReference = Properties(index)
-            Dim v As DebugValue = CurrentPropertyValue(p)
+            Dim v As DebugValue = Await CurrentPropertyValue(p)
 
             If NotNothing(v) Then
                 If v.GUID IsNot Nothing AndAlso v.ValueChanged Then
@@ -259,35 +263,42 @@ Public Class DebugWatcher
 
 #End Region
 
-    Public Function CurrentFieldValue(f As FieldReference) As DebugValue
-        SyncLock (FieldValues)
-            If FieldValues.ContainsKey(f) Then
-                FieldValues(f).UpdateValue(AttachedObject, f)
-            Else
-                Dim newValue As DebugValue = DebugValue.NewFieldValue(f, AttachedObject)
+    Public Async Function CurrentFieldValue(f As FieldReference) As Task(Of DebugValue)
+
+        If FieldValues.ContainsKey(f) Then
+            Dim StateObject As New ChildValueWorkerState With {.Reference = f, .Parents = {AttachedObject}, .Instance = AttachedObject, .Type = ReferenceType.Field}
+
+            ThreadPool.QueueUserWorkItem(Function(so) FieldValues(f).UpdateValue(so), StateObject)
+        Else
+            SyncLock (FieldValues)
+                Dim newValue As DebugValue = DebugValue.NewFieldValue(f, AttachedObject, IsRecursive).SetValueChanged(True)
                 FieldValues.Add(f, newValue)
                 SyncLock (Timelines)
                     Timelines.Add(newValue.GUID, New ValueTimeline(newValue.GUID))
                 End SyncLock
-            End If
+            End SyncLock
+        End If
 
-            Return FieldValues(f)
-        End SyncLock
+        Return FieldValues(f)
+
     End Function
 
-    Public Function CurrentPropertyValue(p As PropertyReference) As DebugValue
-        SyncLock (PropertyValues)
-            If PropertyValues.ContainsKey(p) Then
-                PropertyValues(p).UpdateValue(AttachedObject, p)
-            Else
-                Dim newValue As DebugValue = DebugValue.NewPropertyValue(p, AttachedObject)
+    Public Async Function CurrentPropertyValue(p As PropertyReference) As Task(Of DebugValue)
+
+        If PropertyValues.ContainsKey(p) Then
+            Dim StateObject As New ChildValueWorkerState With {.Reference = p, .Instance = AttachedObject, .Parents = {AttachedObject}, .Type = ReferenceType.Property}
+            ThreadPool.QueueUserWorkItem(Function(so) PropertyValues(p).UpdateValue(so), StateObject)
+        Else
+            SyncLock (PropertyValues)
+                Dim newValue As DebugValue = DebugValue.NewPropertyValue(p, AttachedObject, IsRecursive).SetValueChanged(True)
                 PropertyValues.Add(p, newValue)
                 SyncLock (Timelines)
                     Timelines.Add(newValue.GUID, New ValueTimeline(newValue.GUID))
                 End SyncLock
-            End If
-            Return PropertyValues(p)
-        End SyncLock
+            End SyncLock
+        End If
+        Return PropertyValues(p)
+
     End Function
 
 End Class

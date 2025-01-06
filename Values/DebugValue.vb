@@ -1,19 +1,14 @@
-﻿Imports System.Collections.Specialized
-Imports System.Runtime.InteropServices
-Imports System.Security.Policy
-Imports System.Text.Json.Serialization.Metadata
+﻿Imports System.Threading
 Imports System.Windows
-Imports System.Windows.Documents
+Imports JackDebug.WPF.Async
 Imports JackDebug.WPF.Collections
 Imports MicroSerializationLibrary.Serialization
-Imports Microsoft.Xaml.Behaviors
 
 Namespace Values
     Public Class DebugValue
         Implements IDisposable
 
 #Region "Properties"
-
         Private Property ChildrenNotIndexed As Boolean = True
 
         Public Property GUID As String
@@ -136,6 +131,16 @@ Namespace Values
         End Property
         Private _ValueChanged As Boolean
 
+        Public Property CalculationTime As TimeSpan
+            Get
+                Return _CalculationTime
+            End Get
+            Set(value As TimeSpan)
+                _CalculationTime = value
+            End Set
+        End Property
+        Private _CalculationTime As TimeSpan
+
         Public Property IsField As Boolean
             Get
                 Return _IsField
@@ -164,10 +169,21 @@ Namespace Values
                 _Flags = value
             End Set
         End Property
-        Private _Flags As TypeFlags = EmptyTypeFlag
+        Private _Flags As New TypeFlags()
+
+        Public Property IsRecursive As Boolean
+            Get
+                Return _IsRecursive
+            End Get
+            Set(value As Boolean)
+                _IsRecursive = value
+            End Set
+        End Property
+        Private _IsRecursive As Boolean
 
         Public ReadOnly Property Length As Integer
             Get
+                If IsNothing(Value) Then Return -1
                 If Flags.isArray Then
                     Return Value.Length
                 ElseIf Flags.isDictionary Or Flags.isList Then
@@ -187,35 +203,27 @@ Namespace Values
             End Set
         End Property
         Private _Timecode As Long
-
 #End Region
 
 #Region "Caches"
-
         Private LastFields As New Dictionary(Of FieldReference, DebugValue)
         Private LastProperties As New Dictionary(Of PropertyReference, DebugValue)
 
         Private ChildFields As New List(Of FieldReference)
         Private ChildProperties As New List(Of PropertyReference)
-
 #End Region
 
 #Region "Shared"
 
-        Public Shared IgnoreTypes As Type() = New Type() {GetType(Bitmap)}
-
-        Private Shared EmptyTypeFlag As New TypeFlags With {
-            .isArray = False,
-            .isList = False,
-            .isDictionary = False,
-            .isSystem = False,
-            .isBoolean = False,
-            .isNumeric = False,
-            .isIgnored = False,
-            .isNothing = True
-        }
-
-        Public Shared Function NewFieldValue(FieldReference As FieldReference, Instance As Object) As DebugValue
+        ''' <summary>
+        ''' Maximum time allowed for a type to be reflected and output before it get's blacklisted and no longer reported.
+        ''' </summary>
+        ''' <returns>Default is 0.125 Seconds.</returns>
+        Public Shared Property AutoIgnoreSlowTypesMaxTime As Double = 0.125
+        Public Shared Property AutoIgnoreSlowTypes As Boolean = True
+        Public Shared Property IgnoreTypes As Type() = New Type() {GetType(Bitmap)}
+        Public Shared Function NewFieldValue(FieldReference As FieldReference, Instance As Object, isRecursive As Boolean) As DebugValue
+            Dim Start As DateTime = DateTime.Now
             Dim SafeValue As New SafeValue(FieldReference.Info.GetValue(Instance))
             Dim CurrentValue As Object = SafeValue.Value
 
@@ -233,11 +241,15 @@ Namespace Values
                 Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, Nothing)
                 ChangedIndexies = Results.ChangedIndexies
             End If
-
-            Return New DebugValue(FieldReference.Info.Name, FieldReference, Nothing, t, Flags, CurrentValue, True, Nothing, ChangedIndexies)
+            Dim TimeToCalculate As TimeSpan = DateTime.Now - Start
+            If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                IgnoreTypes.Add(t)
+            End If
+            Return New DebugValue(FieldReference.Info.Name, FieldReference, Nothing, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
         End Function
 
-        Public Shared Function NewPropertyValue(PropertyReference As PropertyReference, Instance As Object) As DebugValue
+        Public Shared Function NewPropertyValue(PropertyReference As PropertyReference, Instance As Object, isRecursive As Boolean) As DebugValue
+            Dim Start As DateTime = DateTime.Now
             Dim SafeValue As New SafeValue(PropertyReference.Info.GetValue(Instance))
             Dim CurrentValue As Object = SafeValue.Value
 
@@ -255,8 +267,11 @@ Namespace Values
                 Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, Nothing)
                 ChangedIndexies = Results.ChangedIndexies
             End If
-
-            Return New DebugValue(PropertyReference.Info.Name, Nothing, PropertyReference, t, Flags, CurrentValue, True, Nothing, ChangedIndexies)
+            Dim TimeToCalculate As TimeSpan = DateTime.Now - Start
+            If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                IgnoreTypes.Add(t)
+            End If
+            Return New DebugValue(PropertyReference.Info.Name, Nothing, PropertyReference, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
         End Function
 
 #End Region
@@ -319,40 +334,9 @@ Namespace Values
 #End Region
 
 #Region "Value Functions"
+        Public Function GetPropertyValue(PropertyReference As PropertyReference, LastValue As DebugValue, Instance As Object, ParentInstances As Object(), isRecursive As Boolean) As DebugValueUpdate
 
-        Public Function GetFieldValue()
-            Return GetFieldValue(FieldReference, LastValue, FieldReference.Instance)
-        End Function
-        Public Function GetPropertyValue()
-            Return GetPropertyValue(PropertyReference, LastValue, PropertyReference.Instance)
-        End Function
-
-        Public Function GetFieldValue(FieldReference As FieldReference, LastValue As DebugValue, Instance As Object, Optional ParentInstances As Object() = Nothing) As DebugValueUpdate
-            Dim SafeValue As New SafeValue(FieldReference.Info.GetValue(Instance))
-            Dim CurrentValue As Object = SafeValue.Value
-            Dim t As Type = FieldReference.Info.FieldType
-            Dim Flags As TypeFlags = GetTypeFlags(SafeValue, t)
-            Dim ValueChanged As Boolean = False
-            Dim ChangedIndexies As New List(Of Integer)
-            If Flags.isArray Then
-                Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
-                ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Flags.isList Then
-                Dim Results As ArrayCompareResults = CompareList(CurrentValue, LastValue)
-                ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Flags.isDictionary Then
-                Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, LastValue)
-                ChangedIndexies = Results.ChangedIndexies
-                ValueChanged = Results.ValueChanged
-            ElseIf Not Flags.isIgnored Then
-                ValueChanged = DidValueChange(CurrentValue, LastValue)
-            End If
-
-            Return New DebugValueUpdate(LastValue, CurrentValue, ValueChanged)
-        End Function
-        Public Function GetPropertyValue(PropertyReference As PropertyReference, LastValue As DebugValue, Instance As Object, Optional ParentInstances As Object() = Nothing) As DebugValueUpdate
+            Me.IsRecursive = isRecursive
             Dim SafeValue As New SafeValue(ResolveValue(PropertyReference, Instance))
             Dim CurrentValue As Object = SafeValue.Value
             Dim t As Type = PropertyReference.Info.PropertyType
@@ -380,47 +364,122 @@ Namespace Values
             Return New DebugValueUpdate(LastValue, CurrentValue, ValueChanged)
         End Function
 
-        Private Function GetChildFieldValues(Instance As Object, Optional ParentInstance As Object() = Nothing) As DebugValueCollection
+        Public Function CompareChildValue(CurrentValue As DebugValue, LastValue As DebugValue, Instance As Object) As DebugValueUpdate
+            Dim ChangedIndexies As New List(Of Integer)
+            If Flags.isArray Then
+                Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
+                ChangedIndexies = Results.ChangedIndexies
+                ValueChanged = Results.ValueChanged
+            ElseIf Flags.isList Then
+                Dim Results As ArrayCompareResults = CompareList(CurrentValue, LastValue)
+                ChangedIndexies = Results.ChangedIndexies
+                ValueChanged = Results.ValueChanged
+            ElseIf Flags.isDictionary Then
+                Dim Results As ArrayCompareResults = CompareDictionary(CurrentValue, LastValue)
+                ChangedIndexies = Results.ChangedIndexies
+                ValueChanged = Results.ValueChanged
+            ElseIf Not Flags.isIgnored Then
+                ValueChanged = DidValueChange(CurrentValue, LastValue)
+            End If
+
+            Return New DebugValueUpdate(LastValue, CurrentValue, ValueChanged)
+        End Function
+
+        Private Function GetAllChildDebugValueCollection(Instance As Object, Parents As Object()) As DebugValueCollection
             Dim out As New DebugValueCollection
             For i As Integer = 0 To ChildFields.Count - 1
+                Dim Start As DateTime = DateTime.Now
                 Dim ChildField As FieldReference = ChildFields(i)
-                Dim LastChildValue As DebugValue = Children.GetField(ChildField)
-                Dim v As DebugValueUpdate = GetFieldValue(ChildField, LastChildValue, Instance, ParentInstance)
-                Children.AddValue(v.CurrentValue)
-                If v.ValueChanged Then out.SetChanged()
-                out.AddValue(v.CurrentValue)
+                If DebugValue.IgnoreTypes.Contains(ChildField.Info.FieldType) Then Continue For
+
+                Dim ChildValue As DebugValue = NewFieldValue(ChildField, Instance, IsRecursive)
+
+                If ChildValue.Value IsNot Nothing Then
+                    If Not Parents.Contains(ChildValue.Value) Then
+                        Parents = Parents.AddJoin(ChildValue.Value)
+                    End If
+
+                    If NotNothing(Parents) AndAlso Parents.Contains(ChildValue) Then
+                        Continue For
+                    End If
+
+                    If Not Children.ContainsField(ChildField) Then
+                        Children.AddValue(ChildValue)
+                        out.AddValue(ChildValue.SetValueChanged(True))
+                    Else
+                        Dim LastChildValue As DebugValue = Children.GetField(ChildField)
+                        Dim CompareResult As DebugValueUpdate = CompareChildValue(ChildValue, LastChildValue, Instance)
+                        Children.SetField(ChildField, ChildValue)
+                        If CompareResult.ValueChanged Then out.SetChanged()
+                        out.AddValue(CompareResult.CurrentValue)
+                    End If
+                End If
+                Dim TimeToCalculate As TimeSpan = DateTime.Now - Start
+                If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                    If AutoIgnoreSlowTypes Then
+                        If Not IgnoreTypes.Contains(ChildField.Info.FieldType) Then
+                            IgnoreTypes.Add(ChildField.Info.FieldType)
+                        End If
+                    End If
+                End If
             Next
-            Return out
-        End Function
-        Private Function GetChildPropertyValues(Instance As Object, Optional ParentInstances As Object() = Nothing) As DebugValueCollection
-            Dim out As New DebugValueCollection()
+
             For i As Integer = 0 To ChildProperties.Count - 1
+                Dim Start As DateTime = DateTime.Now
                 Dim ChildProperty As PropertyReference = ChildProperties(i)
-                Dim LastChildValue As DebugValue = Children.GetProperty(ChildProperty)
-                Dim v As DebugValueUpdate = GetPropertyValue(ChildProperty, LastChildValue, Instance, ParentInstances)
-                Children.AddValue(v.CurrentValue)
-                If v.ValueChanged Then out.SetChanged()
-                out.AddValue(v.CurrentValue)
+                If IgnoreTypes.Contains(ChildProperty.Info.PropertyType) Then Continue For
+
+                Dim ChildValue As DebugValue = NewPropertyValue(ChildProperty, Instance, IsRecursive)
+
+                If ChildValue.Value IsNot Nothing Then
+                    If Not Parents.Contains(ChildValue.Value) Then
+                        Parents = Parents.AddJoin(ChildValue.Value)
+                    End If
+
+                    If NotNothing(Parents) AndAlso Parents.Contains(ChildValue) Then
+                        Continue For
+                    End If
+
+                    If Not Children.ContainsProperty(ChildProperty) Then
+                        Children.AddValue(ChildValue)
+                        out.AddValue(ChildValue.SetValueChanged(True))
+                    Else
+                        Dim LastChildValue As DebugValue = Children.GetProperty(ChildProperty)
+                        Dim CompareResult As DebugValueUpdate = CompareChildValue(ChildValue, LastChildValue, Instance)
+                        Children.SetProperty(ChildProperty, ChildValue)
+                        If CompareResult.ValueChanged Then out.SetChanged()
+                        out.AddValue(CompareResult.CurrentValue)
+                    End If
+                End If
+                Dim TimeToCalculate As TimeSpan = DateTime.Now - Start
+                If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                    If Not IgnoreTypes.Contains(ChildProperty.Info.PropertyType) Then
+                        IgnoreTypes.Add(ChildProperty.Info.PropertyType)
+                    End If
+                End If
             Next
+
+            Flags.CalculatingChildren = False
             Return out
         End Function
 
-        Public Sub UpdateValue(Instance As Object, r As Object)
+        Public Async Function UpdateValue(WorkerState As ChildValueWorkerState) As Task(Of Boolean)
             Dim SafeValue As New SafeValue(Nothing)
 
             If IsField Then
-                SafeValue = New SafeValue(DirectCast(r, FieldReference).Info.GetValue(Instance))
-                _FieldReference = r
+                SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.GetValue(WorkerState.Instance))
+                _FieldReference = WorkerState.Reference
                 _IsField = True
             ElseIf IsProperty Then
-                SafeValue = New SafeValue(DirectCast(r, PropertyReference).Info.GetValue(Instance))
-                _PropertyReference = r
+                SafeValue = New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.GetValue(WorkerState.Instance))
+                _PropertyReference = WorkerState.Reference
                 _IsProperty = True
             End If
 
             Dim CurrentValue = SafeValue.Value
 
             Dim ValueChanged As Boolean = False
+
             If Not SafeValue.IsNothing Then
                 _Type = CurrentValue.GetType()
                 _Flags = GetTypeFlags(SafeValue, Type)
@@ -443,16 +502,25 @@ Namespace Values
                     ValueChanged = DidValueChange(Value, LastValue)
                 End If
 
+                SetValueChanged(ValueChanged)
+
                 If Not Flags.isSystem AndAlso ChildrenNotIndexed Then
                     UpdateChildReferences(CurrentValue)
+                ElseIf Not Flags.isSystem AndAlso Not Flags.CalculatingChildren Then
+                    WorkerState.Instance = CurrentValue
+                    Flags.CalculatingChildren = True
+                    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                    Children = GetAllChildDebugValueCollection(WorkerState.Instance, WorkerState.Parents)
+                    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                    Flags.CalculatingChildren = False
+                    SetValueChanged(Children.ValueChanged)
                 End If
-
-                SetValueChanged(ValueChanged).SetFlags(_Flags)
             End If
 
             _LastValue = Value
             _Value = CurrentValue
-        End Sub
+            Return True
+        End Function
 
         Public Function Clone() As DebugValue
             Dim c As DebugValue = CloneObject(Of DebugValue)
@@ -461,13 +529,10 @@ Namespace Values
         End Function
 
         Private Sub UpdateChildReferences(CurrentValue As Object)
-            If IsField AndAlso NotNothing(CurrentValue) Then
-                ChildrenNotIndexed = False
-                ChildFields = DeserializationWrapper.GetFieldReferences(Value)
-            End If
-            If IsProperty AndAlso NotNothing(CurrentValue) Then
+            If NotNothing(CurrentValue) Then
                 ChildrenNotIndexed = False
                 ChildProperties = DeserializationWrapper.GetPropertyReferences(Value)
+                ChildFields = DeserializationWrapper.GetFieldReferences(Value)
             End If
         End Sub
 
@@ -510,7 +575,7 @@ Namespace Values
         Public Sub New(Name As String, FieldReference As FieldReference, PropertyReference As PropertyReference, Type As Type, Flags As TypeFlags, Value As Object,
                      Optional ValueChanged As Boolean = False,
                      Optional LastValue As Object = Nothing,
-                     Optional ChangedIndexies As List(Of Integer) = Nothing)
+                     Optional ChangedIndexies As List(Of Integer) = Nothing, Optional IsRecursive As Boolean = False)
 
             Dim SafeValue As New SafeValue(Value)
             _GUID = System.Guid.NewGuid().ToString()
@@ -527,6 +592,7 @@ Namespace Values
             _ChangedIndexies = ChangedIndexies
             _Children = Children
             _Timecode = DateTime.UtcNow().Ticks
+            _IsRecursive = IsRecursive
             If Not Flags.isSystem AndAlso ChildrenNotIndexed Then UpdateChildReferences(Value)
         End Sub
 

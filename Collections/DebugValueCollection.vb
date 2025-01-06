@@ -60,8 +60,6 @@ Namespace Collections
             Dispose(disposing:=True)
             GC.SuppressFinalize(Me)
         End Sub
-
-
 #End Region
 
         Public Sub SetChanged()

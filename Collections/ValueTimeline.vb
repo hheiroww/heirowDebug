@@ -1,4 +1,5 @@
-﻿Imports JackDebug.WPF.Values
+﻿Imports System.Windows.Controls
+Imports JackDebug.WPF.Values
 Imports MicroSerializationLibrary.Serialization
 
 Namespace Collections
@@ -26,6 +27,34 @@ Namespace Collections
             End Get
         End Property
         Private _HighestValue As DebugValue
+
+        Public ReadOnly Property Right As Double
+            Get
+                Return _Right
+            End Get
+        End Property
+        Private _Right As Double = 0
+
+        Public ReadOnly Property Left As Double
+            Get
+                Return _Left
+            End Get
+        End Property
+        Private _Left As Double = 0
+
+        Public ReadOnly Property Bottom As Double
+            Get
+                Return _Bottom
+            End Get
+        End Property
+        Private _Bottom As Double = 0
+
+        Public ReadOnly Property Top As Double
+            Get
+                Return _Top
+            End Get
+        End Property
+        Private _Top As Double = 0
 
         Public ReadOnly Property LowestValue As DebugValue
             Get
@@ -130,11 +159,38 @@ Namespace Collections
             _Maximum = Keys.Length
             If DebugValue.ValueChanged Then OnValueChangedEvent(DebugValue, DebugValue.ChangedIndexies)
             If DebugValue.Flags.isGraphable() Then
-                If _HighestValue Is Nothing OrElse (_HighestValue.Value < DebugValue.Value) Then
-                    _HighestValue = DebugValue
-                End If
-                If _LowestValue Is Nothing OrElse (_LowestValue.Value > DebugValue.Value) Then
-                    _LowestValue = DebugValue
+                '''TODO: Clean this area up with individual methods for low/high points.
+                If DebugValue.Flags.isNumeric Then
+                    If _HighestValue Is Nothing OrElse (_HighestValue.Value < DebugValue.Value) Then
+                        _HighestValue = DebugValue
+                    End If
+                    If _LowestValue Is Nothing OrElse (_LowestValue.Value > DebugValue.Value) Then
+                        _LowestValue = DebugValue
+                    End If
+                ElseIf DebugValue.Flags.isDrawingPoint Then
+                    Dim Pt As Point = DirectCast(DebugValue.Value, Point)
+                    If (Right < Pt.X) Then _Right = Pt.X
+                    If (Left > Pt.X) Then _Left = Pt.X
+                    If (Bottom < Pt.Y) Then _Bottom = Pt.Y
+                    If (Top > Pt.Y) Then _Top = Pt.Y
+                ElseIf DebugValue.Flags.isWindowsPoint Then
+                    Dim Pt As System.Windows.Point = DirectCast(DebugValue.Value, System.Windows.Point)
+                    If (Right < Pt.X) Then _Right = Pt.X
+                    If (Left > Pt.X) Then _Left = Pt.X
+                    If (Bottom < Pt.Y) Then _Bottom = Pt.Y
+                    If (Top > Pt.Y) Then _Top = Pt.Y
+                ElseIf DebugValue.Flags.isDrawingRectangle Then
+                    Dim Rect As Rectangle = DirectCast(DebugValue.Value, Rectangle)
+                    If (Right < Rect.Right) Then _Right = Rect.Right
+                    If (Bottom < Rect.Bottom) Then _Bottom = Rect.Bottom
+                    If (Left > Rect.Left) Then _Left = Rect.X
+                    If (Top > Rect.Top) Then _Top = Rect.Y
+                ElseIf DebugValue.Flags.isShapesRect Then
+                    Dim Rect As System.Windows.Shapes.Rectangle = DirectCast(DebugValue.Value, System.Windows.Shapes.Rectangle)
+                    If (Right < Rect.Margin.Right) Then _Right = Rect.Margin.Right
+                    If (Bottom < Rect.Margin.Bottom) Then _Bottom = Rect.Margin.Bottom
+                    If (Left > Rect.Margin.Left) Then _Left = Rect.Margin.Left
+                    If (Top > Rect.Margin.Top) Then _Top = Rect.Margin.Top
                 End If
             End If
         End Sub

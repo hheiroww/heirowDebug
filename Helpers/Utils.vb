@@ -2,10 +2,28 @@
 Imports System.Runtime.CompilerServices
 Imports System.Threading
 Imports System.Windows
+Imports System.Windows.Threading
 Imports JackDebug.WPF.Values
 Imports MicroSerializationLibrary.Serialization
 
 Public Module Utils
+
+
+    Public Function ForceInvoke(action As Action) As Task
+        Dim frame As DispatcherFrame = New DispatcherFrame()
+        Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, New DispatcherOperationCallback(Function(parameter)
+                                                                                                                frame.[Continue] = False
+                                                                                                                Return Nothing
+                                                                                                            End Function), Nothing)
+
+        Dispatcher.PushFrame(frame)
+        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Send)
+        'Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Background)
+    End Function
+
+    Public Function SoftInvoke(action As Action) As Task
+        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Send)
+    End Function
 
     <Extension()>
     Public Function CloneObject(Of T)(Original As Object) As T

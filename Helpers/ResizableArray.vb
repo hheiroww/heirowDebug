@@ -13,6 +13,20 @@ Public Module ResizableArray
     End Sub
 
     <Extension()>
+    Public Function AddJoin(Of T)(ByRef arr As T(), item As T)
+        If arr Is Nothing Then
+            Dim newArray As Object() = New Object() {}
+            Array.Resize(newArray, newArray.Length + 1)
+            newArray(newArray.Length - 1) = item
+            Return newArray
+        Else
+            Array.Resize(arr, arr.Length + 1)
+            arr(arr.Length - 1) = item
+            Return arr
+        End If
+    End Function
+
+    <Extension()>
     Public Sub AddRange(Of T)(ByRef arr As T(), item As T())
         For i As Integer = 0 To item.Length - 1
             arr.Add(item(i))

@@ -5,7 +5,6 @@ Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Controls
 Imports System.Windows.Controls.Primitives
-Imports System.Windows.Forms.Integration
 Imports System.Windows.Input
 Imports System.Windows.Media
 Imports System.Windows.Media.Animation
@@ -16,7 +15,6 @@ Imports JackDebug.WPF.Values
 Imports MahApps.Metro.Controls
 Imports MicroSerializationLibrary
 Imports MicroSerializationLibrary.Serialization
-Imports Windows.Media.Capture
 
 Public Class DebugWindow
     Inherits MetroWindow
@@ -143,7 +141,7 @@ Public Class DebugWindow
 #Region "Drawing"
 
     Public Sub ClearPoints()
-        Application.Current.Dispatcher.Invoke(Sub() Points.Clear())
+        SoftInvoke(Sub() Points.Clear())
         DrawIndex = 0
         _PlotWidth = Plot.ActualWidth
         _PlotHeight = Plot.ActualHeight
@@ -181,55 +179,62 @@ Public Class DebugWindow
         If DrawIndex = Upper Then Return
 
         Dim splice As ValueTimelineSplice = CurrentTimeline.GetValuesWithin(Lower, Upper)
-
-
         If splice.isGraphable Then
-            Application.Current.Dispatcher.Invoke(
-            Sub()
-                ClearPoints()
-                Dim l As Integer = splice.Values.Length - 1
-                Dim pointWidth As Double = PlotWidth / l
+            If CurrentTimeline.HighestValue Is Nothing Then Return
+            If CurrentTimeline.LowestValue Is Nothing Then Return
+            SoftInvoke(
+                Sub()
+                    ClearPoints()
+                    Dim l As Integer = splice.Values.Length - 1
+                    Dim pointWidth As Double = PlotWidth / l
 
-                Dim isBoolean As Boolean = splice.Values.First().Flags.isBoolean
+                    Dim Flags As TypeFlags = splice.Values.Last().Flags
 
-                CreatePoint(DrawIndex, 0)
-                CreatePoint(DrawIndex, PlotHeight)
-                CreatePoint(DrawIndex, 0)
-                For i As Integer = 0 To splice.Values.Length - 1
-                    Dim v As DebugValue = splice.Values(i)
-                    Dim InterpolatedValue As Double
+                    CreatePoint(DrawIndex, 0)
+                    CreatePoint(DrawIndex, PlotHeight)
+                    CreatePoint(DrawIndex, 0)
+                    For i As Integer = 0 To splice.Values.Length - 1
+                        Dim v As DebugValue = splice.Values(i)
+                        Dim InterpolatedValue As Double
 
-                    If isBoolean Then
-                        If v.Value Then
-                            InterpolatedValue = PlotHeight
-                        Else
-                            InterpolatedValue = 0
+                        If Flags.isBoolean Then
+                            If v.Value Then
+                                InterpolatedValue = PlotHeight
+                            Else
+                                InterpolatedValue = 0
+                            End If
+                        ElseIf Flags.isDrawingRectangle Then
+                        ElseIf Flags.isShapesRect Then
+                        ElseIf Flags.isDrawingPoint Then
+                        ElseIf Flags.isWindowsPoint Then
+                        ElseIf Flags.isNumeric Then
+                            InterpolatedValue = Interpolate(v.Value, CurrentTimeline.LowestValue.Value, CurrentTimeline.HighestValue.Value, 0, PlotHeight)
                         End If
+
+                        CreatePoint(DrawIndex, InterpolatedValue)
+                        CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
+
+                        DrawIndex += pointWidth
+                    Next
+
+                    CreatePoint(DrawIndex, 0)
+
+                    If Flags.isBoolean Then
+                        LowLabel.Text = "False"
+                        HighLabel.Text = "True"
                     Else
-                        InterpolatedValue = Interpolate(v.Value, CurrentTimeline.LowestValue.Value, CurrentTimeline.HighestValue.Value, 0, PlotHeight)
+                        LowLabel.Text = CurrentTimeline.LowestValue.Value
+                        HighLabel.Text = CurrentTimeline.HighestValue.Value
                     End If
+                End Sub)
 
-                    CreatePoint(DrawIndex, InterpolatedValue)
-                    CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
 
-                    DrawIndex += pointWidth
-                Next
-
-                CreatePoint(DrawIndex, 0)
-                If isBoolean Then
-                    LowLabel.Text = "False"
-                    HighLabel.Text = "True"
-                Else
-                    LowLabel.Text = CurrentTimeline.LowestValue.Value
-                    HighLabel.Text = CurrentTimeline.HighestValue.Value
-                End If
-            End Sub)
         End If
 
     End Sub
 
     Public Sub CreatePoint(x As Double, y As Double)
-        Application.Current.Dispatcher.Invoke(Sub() Points.Add(New Point(x, PlotHeight - y)))
+        SoftInvoke(Sub() Points.Add(New Point(x, PlotHeight - y)))
     End Sub
 
 #End Region
@@ -246,6 +251,7 @@ Public Class DebugWindow
 
     Public Property KeepAtEnd As Boolean = False
     Private Property DrawIndex As Double = 0
+    Private Property SelectedArrayIndex As Integer = 0
 
     Public ReadOnly Property isAtEnd As Boolean
         Get
@@ -359,17 +365,17 @@ Public Class DebugWindow
     Private WatcherItems As New Dictionary(Of String, TreeViewItem)
     Private TreeItems As New Dictionary(Of String, TreeViewItem)
 
-    Private Function CreateTreeItem(Type As Type, Header As String) As TreeViewItem
+    Private Async Function CreateTreeItem(Type As Type, Header As String, Optional ToolTip As String = Nothing) As Task(Of TreeViewItem)
         Dim NewValue As TreeViewItem = Nothing
-        Application.Current.Dispatcher.Invoke(
-            Sub()
-                NewValue = New TreeViewItem
-                With NewValue
-                    .ToolTip = Type.Name
-                    .Header = Header
-                    .Background = New SolidColorBrush(DefaultBackground)
-                End With
-            End Sub)
+        SoftInvoke(Sub()
+                       NewValue = New TreeViewItem
+                       If ToolTip = Nothing Then ToolTip = Type.Name
+                       With NewValue
+                           .ToolTip = ToolTip
+                           .Header = Header
+                           .Background = New SolidColorBrush(DefaultBackground)
+                       End With
+                   End Sub)
 
         Return NewValue
     End Function
@@ -378,8 +384,8 @@ Public Class DebugWindow
 
 #Region "Animations"
 
-    Public Sub ValueChangedAnim(TreeViewItem As TreeViewItem, Indexies As List(Of Integer))
-        Application.Current.Dispatcher.Invoke(
+    Public Async Sub ValueChangedAnim(TreeViewItem As TreeViewItem, Indexies As List(Of Integer))
+        SoftInvoke(
             Sub()
                 If Indexies IsNot Nothing AndAlso Indexies.Count > 0 Then
                     For i As Integer = 0 To Indexies.Count - 1
@@ -397,9 +403,10 @@ Public Class DebugWindow
 
 #Region "Functions"
 
-    Private Sub SetTimeline(cw As DebugWatcher, GUID As String)
+    Private Sub SetTimeline(cw As DebugWatcher, GUID As String, SelectedArrayIndex As Integer)
         ClearPoints()
         CurrentWatcher = cw
+        SelectedArrayIndex = SelectedArrayIndex
         CurrentTimeline = CurrentWatcher.Timelines(GUID)
     End Sub
 
@@ -421,7 +428,7 @@ Public Class DebugWindow
     ''' <summary>
     ''' Tree View Item Updates
     ''' </summary>
-    Private Sub BackgroundWorker_DoWork(sender As Object, e As DoWorkEventArgs) Handles BackgroundWorker.DoWork
+    Private Async Sub BackgroundWorker_DoWork(sender As Object, e As DoWorkEventArgs) Handles BackgroundWorker.DoWork
         Do While Enabled
             Dim nCount As Integer = WatcherCount
             If nCount <> _WatcherCount Then
@@ -431,8 +438,8 @@ Public Class DebugWindow
                     Dim t As Type = w.AttachedObject.GetType
                     If Not CurrentWatchers.ContainsKey(w.GUID) AndAlso Not IsImmutable(t) Then
                         CurrentWatchers.Add(w.GUID, w)
-                        Dim NewWatcher As TreeViewItem = CreateTreeItem(t, w.Name)
-                        Application.Current.Dispatcher.Invoke(
+                        Dim NewWatcher As TreeViewItem = Await CreateTreeItem(t, w.Name)
+                        SoftInvoke(
                             Sub()
                                 If Not TreeItems.ContainsKey(w.GUID) Then
                                     Watchers.Items.Add(NewWatcher)
@@ -459,61 +466,108 @@ Public Class DebugWindow
     ''' </summary>
     ''' <param name="Watcher">Current Watcher</param>
     ''' <param name="Value">Current Value</param>
-    Private Sub ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+    Private Async Sub ValueCalculated(Watcher As DebugWatcher, Value As DebugValue, Optional Parents As Object() = Nothing)
         If Value Is Nothing Then Return
 
+        If NotNothing(Parents) AndAlso Parents.Contains(Value.Value) Then
+            Return
+        End If
         Dim TimelineDiff As Integer = 0
 
         If TreeItems.ContainsKey(Value.GUID) Then
             If CurrentTimeline IsNot Nothing AndAlso Value.GUID = CurrentTimeline.GUID Then TimelineDiff += 1
-
+            ''' TODO: 
+            ''' Split into seperate methods and/or functions & Cleanup in general.
             Dim TVI As TreeViewItem = TreeItems(Value.GUID)
             If Value.Flags.isArray Or Value.Flags.isList Or Value.Flags.isDictionary Then
-                ''' TODO: 
-                ''' Split into seperate methods and/or functions
-                ''' Optimize Thread Switching
                 If Value.Flags.isDictionary AndAlso Value.KeyList IsNot Nothing Then
+                    ''' DICTIONARY FUNCTION
+                    Dim ArrayType As Type = Nothing
                     For i As Integer = i To Value.KeyList.Count - 1
                         Dim Index As Integer = i
-                        Dim Header As String = "[" & Index & "]" & Value.KeyList(Index) & ": " & Value.Type.Name
+                        If Index > Value.Value.Length - 1 Then Exit For
+                        Dim ArrayItemKey As Object = Value.KeyList(Index)
+                        Dim ArrayItemValue As Object = Value.ValueList(Index)
+                        Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", ArrayItemValue.ToString())
+                        If ArrayType Is Nothing Then ArrayType = ArrayItemValue.GetType()
+                        Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
                         If Index > TVI.Items.Count - 1 Then
-                            Dim aTVI As TreeViewItem = CreateTreeItem(Value.ValueList(Index).GetType, Header)
-                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
-                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
+                            Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayType, Header)
+                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID, Index)
+                            SoftInvoke(Sub()
+                                           If Index > Value.Value.Count - 1 Then Return
+                                           Try
+                                               TVI.Items.Add(aTVI)
+                                           Catch ex As Exception
+                                               '''TODO: Not sure why this thows an out of bounds exception..
+                                           End Try
+                                       End Sub)
                         Else
-                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items(Index).Header = Header)
+                            SoftInvoke(Sub()
+                                           If Index > Value.Value.Count - 1 Then Return
+                                           Try
+                                               TVI.Items(Index).Header = Header
+                                           Catch ex As Exception
+                                               '''TODO: Not sure why this thows an out of bounds exception..
+                                           End Try
+                                       End Sub)
                         End If
                     Next
                 ElseIf Value.Flags.isList AndAlso Value.Value IsNot Nothing Then
-                    For i As Integer = i To Value.Length - 1
-                        Dim Header As String = "[" & i & "] " & Value.Value(i).GetType.Name
+                    ''' LIST FUNCTION
+                    Dim ArrayType As Type = Nothing
+                    Dim L As Integer = Value.Length - 1
+                    For i As Integer = i To L
+                        If i > Value.Value.Count - 1 Then Exit For
                         Dim Index As Integer = i
+                        Dim ArrayItem As Object = Value.Value(Index)
+                        Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", ArrayItem.ToString())
+                        If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
+                        Dim Header As String = "[" & Index & "] " & ArrayType.Name & ": " & ValueToString
                         If Index > TVI.Items.Count - 1 Then
-                            Dim aTVI As TreeViewItem = CreateTreeItem(Value.Value(Index).GetType, Header)
-                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
-                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
+                            Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayType, Header)
+                            Do Until aTVI IsNot Nothing : Thread.Sleep(1) : Loop
+                            AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID, Index)
+                            SoftInvoke(Sub()
+                                           If Index > Value.Value.Count - 1 Then Return
+                                           Try
+                                               TVI.Items.Add(aTVI)
+                                           Catch ex As Exception
+                                               '''TODO: Not sure why this thows an out of bounds exception..
+                                           End Try
+                                       End Sub)
                         Else
-                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items(Index).Header = Header)
+                            SoftInvoke(Sub()
+                                           If Index > Value.Value.Count - 1 Then Return
+                                           Try
+                                               TVI.Items(Index).Header = Header
+                                           Catch ex As Exception
+                                               '''TODO: Check for out of bounds if nessesary. Haven't seen it happen, yet..
+                                           End Try
+                                       End Sub)
                         End If
                     Next
                 ElseIf Value.Flags.isArray AndAlso Value.Value IsNot Nothing Then
-                    Dim ArrayType As String = ""
+                    ''' ARRAY FUNCTION
+                    Dim ArrayType As Type = Nothing
                     For i As Integer = 0 To Value.Length - 1
+                        If Value.Length - 1 < i Then Exit For
                         Dim Index As Integer = i
                         If Index < 0 Then Exit For
-                        If Value.Length - 1 < Index Then Exit For
                         Try
                             Dim ArrayItem As Object = Value.Value(Index)
-                            If ArrayType = "" Then ArrayType = ArrayItem.GetType.Name
-                            Dim Header As String = "[" & Index & "]: " & ArrayType
+                            If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
+                            Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", ArrayItem.ToString())
+                            Dim Header As String = "[" & Index & "] " & ArrayType.Name & ": " & ValueToString
                             Dim ItemCount1 As Integer = 0
 
-                            Application.Current.Dispatcher.Invoke(Sub() ItemCount1 = TVI.Items.Count - 1)
+                            SoftInvoke(Sub() ItemCount1 = TVI.Items.Count - 1)
                             If Index > ItemCount1 Then
-                                Dim aTVI As TreeViewItem = CreateTreeItem(ArrayItem.GetType, Header)
-                                AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
-                                Application.Current.Dispatcher.Invoke(
+                                Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayItem.GetType, Header)
+                                AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID, Index)
+                                SoftInvoke(
                                     Sub()
+                                        If Index > Value.Value.Length - 1 Then Return
                                         Try
                                             TVI.Items.Add(aTVI)
                                         Catch ex As Exception
@@ -521,8 +575,9 @@ Public Class DebugWindow
                                         End Try
                                     End Sub)
                             Else
-                                Application.Current.Dispatcher.Invoke(
+                                SoftInvoke(
                                     Sub()
+                                        If Index > Value.Value.length - 1 Then Return
                                         Try
                                             TVI.Items(Index).Header = Header
                                         Catch ex As Exception
@@ -535,51 +590,111 @@ Public Class DebugWindow
                     Next
                 End If
                 Dim ItemCount2 As Integer = 0
-                Application.Current.Dispatcher.Invoke(Sub() ItemCount2 = TVI.Items.Count - 1)
+                SoftInvoke(Sub() ItemCount2 = TVI.Items.Count - 1)
                 If ItemCount2 > Value.Length - 1 Then
-                    For x As Integer = ItemCount2 To Value.Length - 1 Step -1
+                    Dim Length As Integer = 0
+                    For x As Integer = ItemCount2 To Length Step -1
                         Dim Index As Integer = x
-                        If TVI.Items.Count > 0 Then
-                            Application.Current.Dispatcher.Invoke(Sub() TVI.Items.RemoveAt(Index))
-                        Else
-                            Exit For
-                        End If
+                        Dim [Continue] As Boolean = False
+                        SoftInvoke(
+                                Sub()
+                                    If TVI.Items.Count > 0 AndAlso TVI.Items.Count - 1 <= Index Then
+                                        Try
+                                            TVI.Items.RemoveAt(Index)
+                                        Catch ex As Exception
+
+                                        End Try
+                                    Else
+                                        [Continue] = True
+                                    End If
+                                End Sub)
+                        If [Continue] Then Continue For
                     Next
                 End If
+            ElseIf Value.Flags.isSystem Then
+                Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Value.Value.ToString())
+
+                SoftInvoke(Sub() TVI.Header = Value.Name & "(" & ValueToString & ")")
             Else
-                TimelineDiff += IterateValues(Watcher, TVI, Value, Value)
-                ''' TODO: 
-                ''' Show Values!!!!
-                'TVI.Header = v.Value.Tostring()
+                TimelineDiff += IterateValues(Watcher, TVI, Value, New Object() {Value.Value})
             End If
         Else
-            Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Value.Name)
-            AddHandler TVI.Selected, Sub()
-                                         If Not SubItemSelected(TVI) Then
-                                             SetTimeline(Watcher, Value.GUID)
-                                         End If
-                                     End Sub
-
-
-
+            ''' TODO: 
+            ''' Split into seperate methods and/or functions & Cleanup in general.
             If Value.Flags.isArray Or Value.Flags.isList Or Value.Flags.isDictionary Then
-                For i As Integer = 0 To Value.Length - 1
-                    Dim ArrayItem As Object = Value.Value(i)
-                    Dim aTVI As TreeViewItem = CreateTreeItem(ArrayItem.GetType, ArrayItem.GetType().Name)
-                    AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID)
-                    Application.Current.Dispatcher.Invoke(Sub() TVI.Items.Add(aTVI))
+
+                ''' LIST, DICTIONARY, AND ARRAY HEADER ITEM
+                Dim TVI As TreeViewItem = Await CreateTreeItem(Value.Type, Value.Name)
+                AddHandler TVI.Selected, Sub() If Not SubItemSelected(TVI) Then SetTimeline(Watcher, Value.GUID, -1)
+
+                Dim ArrayType As Type = Nothing
+                Dim index As Integer = 0
+                Dim L As Integer = Value.Length - 1
+                For i As Integer = 0 To L
+                    index = i
+                    If Value.Flags.isDictionary Then
+                        If index > Value.Value.Count - 1 Then Exit For
+                    ElseIf Value.Flags.isList Then
+                        If index > Value.Value.Count - 1 Then Exit For
+                    ElseIf Value.Flags.isArray Then
+                        If index > Value.Value.Length - 1 Then Exit For
+                    End If
+
+                    Dim ArrayItem As Object = Value.Value(index)
+                    If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
+                    Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", ArrayItem.ToString())
+                    Dim Header As String = "[" & index & "] " & ArrayType.Name & ": " & ValueToString
+                    Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayItem.GetType, ArrayItem.GetType().Name)
+                    AddHandler aTVI.Selected, Sub() SetTimeline(Watcher, Value.GUID, index)
+                    SoftInvoke(Sub()
+                                   If Value.Flags.isDictionary Then
+                                       If index > Value.Value.Count - 1 Then Return
+                                   ElseIf Value.Flags.isList Then
+                                       If index > Value.Value.Count - 1 Then Return
+                                   ElseIf Value.Flags.isArray Then
+                                       If index > Value.Value.Length - 1 Then Return
+                                   End If
+                                   Try
+                                       TVI.Items.Add(aTVI)
+                                   Catch ex As Exception
+                                       '''TODO: Fix yet ANOTHER out of bounds exception... not sure why.
+                                   End Try
+                               End Sub)
                 Next
-            End If
-            If TreeItems.ContainsKey(Value.GUID) Then
-                TVI = Nothing
-                _TimelineDifference = TimelineDiff
-                Return
+                If TreeItems.ContainsKey(Value.GUID) Then
+                    TVI = Nothing
+                    _TimelineDifference = TimelineDiff
+                    Return
+                Else
+                    TreeItems.Add(Value.GUID, TVI)
+                    AddHandler Watcher.Timelines(Value.GUID).ValueChanged, Sub(Timeline As ValueTimeline, ChangedValue As DebugValue, ArrayIndexies As List(Of Integer)) ValueChangedAnim(TVI, ArrayIndexies)
+                    SoftInvoke(
+                        Sub() WatcherItems(Watcher.GUID).Items.Add(TVI))
+                End If
+            Else
+                Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Value.Value.ToString())
+                Dim Header As String = Value.Name & "(" & ValueToString & ")"
+                Dim TVI As TreeViewItem = Await CreateTreeItem(Value.Type, Header)
+                AddHandler TVI.Selected, Sub() If Not SubItemSelected(TVI) Then SetTimeline(Watcher, Value.GUID, -1)
+                If TreeItems.ContainsKey(Value.GUID) Then
+                    TVI = Nothing
+                    _TimelineDifference = TimelineDiff
+                    Return
+                Else
+                    TreeItems.Add(Value.GUID, TVI)
+                    AddHandler Watcher.Timelines(Value.GUID).ValueChanged, Sub(Timeline As ValueTimeline, ChangedValue As DebugValue, ArrayIndexies As List(Of Integer))
+                                                                               ValueChangedAnim(TVI, ArrayIndexies)
+                                                                           End Sub
+                    SoftInvoke(Sub()
+                                   Try
+                                       WatcherItems(Watcher.GUID).Items.Add(TVI)
+                                   Catch ex As Exception
+                                       '''TODO: Fix yet ANOTHER out of bounds exception... not sure why.
+                                   End Try
+                               End Sub)
+                End If
             End If
 
-            TreeItems.Add(Value.GUID, TVI)
-            AddHandler Watcher.Timelines(Value.GUID).ValueChanged, Sub(Timeline As ValueTimeline, ChangedValue As DebugValue, ArrayIndexies As List(Of Integer)) ValueChangedAnim(TVI, ArrayIndexies)
-            Application.Current.Dispatcher.Invoke(
-                Sub() WatcherItems(Watcher.GUID).Items.Add(TVI))
         End If
 
         _TimelineDifference = TimelineDiff
@@ -593,42 +708,27 @@ Public Class DebugWindow
     ''' <param name="CurrentValue"></param>
     ''' <param name="Parent"></param>
     ''' <returns></returns>
-    Private Function IterateValues(cw As DebugWatcher, TVI As TreeViewItem, CurrentValue As DebugValue, Parent As DebugValue) As Integer
-        If CurrentValue Is Nothing Then Return 0
-        If CurrentValue.Children Is Nothing Then Return 0
-        If CurrentValue.Children.Length > 0 Then
-            Dim TimelineDiff As Integer = 0
+    Private Function IterateValues(cw As DebugWatcher, TVI As TreeViewItem, CurrentValue As DebugValue, Parents As Object()) As Integer
+        'If CurrentValue Is Nothing Then Return 0
+        'If CurrentValue.Children Is Nothing Then Return 0
+        'If CurrentValue.Children.Length > 0 Then
+        '    Dim TimelineDiff As Integer = 0
 
-            For i As Integer = 0 To CurrentValue.Children.Length - 1
-                Dim ArrayItem As DebugValue = CurrentValue.Children.Values(i)
+        '    Dim Index As Integer = 0
+        '    For i As Integer = 0 To CurrentValue.Children.Length - 1
+        '        Index = i
+        '        Dim ArrayItem As DebugValue = CurrentValue.Children.Values(Index)
 
-                If ArrayItem Is Nothing Then Continue For
-                If Not ArrayItem.ValueChanged Then Continue For
+        '        If ArrayItem Is Nothing Then Continue For
+        '        ' If Not ArrayItem.ValueChanged Then Continue For
+        '        Dim NewParents As Object() = Parents.AddJoin(ArrayItem.Value)
+        '        If Parents.Contains(ArrayItem.Value) Then Continue For
 
-                If ArrayItem.Value Is Parent.Value Then
-                    Continue For
-                End If
+        '        ValueCalculated(cw, ArrayItem, NewParents)
+        '    Next
 
-                If ArrayItem.GUID = CurrentTimeline.GUID Then TimelineDiff += 1
-
-                If i > TVI.Items.Count - 1 Then
-                    Dim aTVI As TreeViewItem = Nothing
-                    Application.Current.Dispatcher.Invoke(Sub()
-                                                              aTVI = CreateTreeItem(ArrayItem.GetType, ArrayItem.Name)
-                                                              AddHandler aTVI.Selected, Sub() SetTimeline(cw, CurrentValue.GUID)
-                                                              TVI.Items.Add(aTVI)
-                                                          End Sub)
-                    TimelineDiff += IterateValues(cw, aTVI, ArrayItem, Parent)
-                Else
-                    Dim aTVI As TreeViewItem = Nothing
-                    Dim index As Integer = i
-                    Application.Current.Dispatcher.Invoke(Sub() aTVI = TVI.Items(index))
-                    TimelineDiff += IterateValues(cw, aTVI, ArrayItem, Parent)
-                End If
-            Next
-
-            Return TimelineDiff
-        End If
+        '    Return TimelineDiff
+        'End If
         Return 0
     End Function
 
