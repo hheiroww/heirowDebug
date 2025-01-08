@@ -21,6 +21,16 @@ Namespace Values
         End Property
         Private _GUID As String
 
+        Public Property AllChangedGuids As List(Of String)
+            Get
+                Return _AllChangedGuids
+            End Get
+            Set(value As List(Of String))
+                _AllChangedGuids = value
+            End Set
+        End Property
+        Private _AllChangedGuids As New List(Of String)
+
         Public Property Name As String
             Get
                 Return _Name
@@ -194,21 +204,19 @@ Namespace Values
             End Get
         End Property
 
-        Public Property Timecode As Long
+        Public Property Timecode As Integer
             Get
                 Return _Timecode
             End Get
-            Set(value As Long)
+            Set(value As Integer)
                 _Timecode = value
             End Set
         End Property
-        Private _Timecode As Long
+        Private _Timecode As Integer
+
 #End Region
 
 #Region "Caches"
-        Private LastFields As New Dictionary(Of FieldReference, DebugValue)
-        Private LastProperties As New Dictionary(Of PropertyReference, DebugValue)
-
         Private ChildFields As New List(Of FieldReference)
         Private ChildProperties As New List(Of PropertyReference)
 #End Region
@@ -387,6 +395,7 @@ Namespace Values
 
         Private Function GetAllChildDebugValueCollection(Instance As Object, Parents As Object()) As DebugValueCollection
             Dim out As New DebugValueCollection
+
             For i As Integer = 0 To ChildFields.Count - 1
                 Dim Start As DateTime = DateTime.Now
                 Dim ChildField As FieldReference = ChildFields(i)
@@ -402,6 +411,12 @@ Namespace Values
                     If NotNothing(Parents) AndAlso Parents.Contains(ChildValue) Then
                         Continue For
                     End If
+
+                    SyncLock (AllChangedGuids)
+                        If Not AllChangedGuids.Contains(ChildValue.GUID) Then
+                            AllChangedGuids.Add(ChildValue.GUID)
+                        End If
+                    End SyncLock
 
                     If Not Children.ContainsField(ChildField) Then
                         Children.AddValue(ChildValue)
@@ -463,7 +478,7 @@ Namespace Values
             Return out
         End Function
 
-        Public Async Function UpdateValue(WorkerState As ChildValueWorkerState) As Task(Of Boolean)
+        Public Function UpdateValue(WorkerState As ChildValueWorkerState) As DebugValue
             Dim SafeValue As New SafeValue(Nothing)
 
             If IsField Then
@@ -507,33 +522,33 @@ Namespace Values
                 If Not Flags.isSystem AndAlso ChildrenNotIndexed Then
                     UpdateChildReferences(CurrentValue)
                 ElseIf Not Flags.isSystem AndAlso Not Flags.CalculatingChildren Then
-                    WorkerState.Instance = CurrentValue
                     Flags.CalculatingChildren = True
                     '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-                    Children = GetAllChildDebugValueCollection(WorkerState.Instance, WorkerState.Parents)
+                    'Children = GetAllChildDebugValueCollection(WorkerState.Instance, WorkerState.Parents)
                     '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
                     Flags.CalculatingChildren = False
+
                     SetValueChanged(Children.ValueChanged)
                 End If
             End If
 
             _LastValue = Value
             _Value = CurrentValue
-            Return True
+            Return Me
         End Function
 
         Public Function Clone() As DebugValue
             Dim c As DebugValue = CloneObject(Of DebugValue)
-            If Not c.Flags.isSystem AndAlso c.ChildrenNotIndexed Then c.UpdateChildReferences(c.Value)
+            'If Not c.Flags.isSystem AndAlso c.ChildrenNotIndexed Then c.UpdateChildReferences(c.Value)
             Return c
         End Function
 
         Private Sub UpdateChildReferences(CurrentValue As Object)
-            If NotNothing(CurrentValue) Then
-                ChildrenNotIndexed = False
-                ChildProperties = DeserializationWrapper.GetPropertyReferences(Value)
-                ChildFields = DeserializationWrapper.GetFieldReferences(Value)
-            End If
+            'If NotNothing(CurrentValue) Then
+            '    ChildrenNotIndexed = False
+            '    ChildProperties = DeserializationWrapper.GetPropertyReferences(CurrentValue.GetType())
+            '    ChildFields = DeserializationWrapper.GetFieldReferences(CurrentValue.GetType())
+            'End If
         End Sub
 
 #End Region
@@ -558,6 +573,7 @@ Namespace Values
                     If NotNothing(_Children) Then _Children.Dispose()
                     _Children = Nothing
                     _Timecode = Nothing
+                    _CalculationTime = Nothing
                 End If
 
                 disposedValue = True
@@ -591,7 +607,8 @@ Namespace Values
             _PropertyReference = PropertyReference
             _ChangedIndexies = ChangedIndexies
             _Children = Children
-            _Timecode = DateTime.UtcNow().Ticks
+            If DebugWatcher.FirstTimeEnabled = Nothing Then DebugWatcher.FirstTimeEnabled = DateTime.Now
+            _Timecode = DateTime.Now.Ticks - DebugWatcher.FirstTimeEnabled.Ticks
             _IsRecursive = IsRecursive
             If Not Flags.isSystem AndAlso ChildrenNotIndexed Then UpdateChildReferences(Value)
         End Sub

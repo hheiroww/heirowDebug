@@ -21,13 +21,6 @@ Namespace Collections
         End Property
         Private _Maximum As Integer = -1
 
-        Public ReadOnly Property HighestValue As DebugValue
-            Get
-                Return _HighestValue
-            End Get
-        End Property
-        Private _HighestValue As DebugValue
-
         Public ReadOnly Property Right As Double
             Get
                 Return _Right
@@ -56,12 +49,19 @@ Namespace Collections
         End Property
         Private _Top As Double = 0
 
-        Public ReadOnly Property LowestValue As DebugValue
+        Public ReadOnly Property HighestValue As Object
+            Get
+                Return _HighestValue
+            End Get
+        End Property
+        Private _HighestValue As Object
+
+        Public ReadOnly Property LowestValue As Object
             Get
                 Return _LowestValue
             End Get
         End Property
-        Private _LowestValue As DebugValue
+        Private _LowestValue As Object
 
         Public ReadOnly Property LastValue As DebugValue
             Get
@@ -76,7 +76,7 @@ Namespace Collections
         Public Property IsEnabled As Boolean = True
 
         Public Property Values As New List(Of DebugValue)
-        Public Property Keys As New List(Of Long)
+        Public Property Keys As New List(Of Integer)
 
 #End Region
 
@@ -124,22 +124,20 @@ Namespace Collections
             Dim HighValue As DebugValue = Nothing
             Dim OutputValues As New List(Of DebugValue)
             For i As Integer = StartIndex To EndIndex
-                If Keys.Length - 1 >= StartIndex AndAlso Keys.Length - 1 >= EndIndex Then
+                If Keys.Count - 1 >= StartIndex AndAlso Keys.Count - 1 >= EndIndex Then
                     Dim Value As DebugValue = Values(i)
-                    If Value.Flags.isGraphable() Then
-                        If LowValue Is Nothing OrElse Value.Value < LowValue.Value Then LowValue = Value
-                        If HighValue Is Nothing OrElse Value.Value > HighValue.Value Then HighValue = Value
-                    End If
                     OutputValues.Add(Value)
+                Else
+                    Exit For
                 End If
             Next
-            Return New ValueTimelineSplice(OutputValues, LowValue, HighValue)
+            Return New ValueTimelineSplice(OutputValues)
         End Function
 
         Public Function GetValuesWithin(StartTime As Long, EndTime As Long) As List(Of DebugValue)
             Dim Output As New List(Of DebugValue)
-            For i As Integer = 0 To Keys.Length - 1
-                If Values.Length - 1 >= i Then
+            For i As Integer = 0 To Keys.Count - 1
+                If Values.Count - 1 >= i Then
                     Dim Value As DebugValue = Values(i)
                     If Value.Timecode >= StartTime AndAlso Value.Timecode <= EndTime Then
                         Output.Add(Value)
@@ -153,40 +151,44 @@ Namespace Collections
             Return GetValuesWithin(StartTime.Ticks, EndTime.Ticks)
         End Function
 
-        Public Sub AddValue(DebugValue As DebugValue)
-            Keys.Add(DebugValue.Timecode)
-            Values.Add(DebugValue)
-            _Maximum = Keys.Length
-            If DebugValue.ValueChanged Then OnValueChangedEvent(DebugValue, DebugValue.ChangedIndexies)
-            If DebugValue.Flags.isGraphable() Then
+        Public Sub AddValue(value As DebugValue)
+            SyncLock (Keys)
+                SyncLock (Values)
+                    Keys.Add(value.Timecode)
+                    Values.Add(value)
+                End SyncLock
+            End SyncLock
+            _Maximum = Keys.Count
+            'If DebugValue.ValueChanged Then OnValueChangedEvent(DebugValue, DebugValue.ChangedIndexies)
+            If value.Flags.isGraphable() Then
                 '''TODO: Clean this area up with individual methods for low/high points.
-                If DebugValue.Flags.isNumeric Then
-                    If _HighestValue Is Nothing OrElse (_HighestValue.Value < DebugValue.Value) Then
-                        _HighestValue = DebugValue
+                If value.Flags.isNumeric Then
+                    If _HighestValue Is Nothing OrElse (_HighestValue < value.Value) Then
+                        _HighestValue = value.Value
                     End If
-                    If _LowestValue Is Nothing OrElse (_LowestValue.Value > DebugValue.Value) Then
-                        _LowestValue = DebugValue
+                    If _LowestValue Is Nothing OrElse (_LowestValue > value.Value) Then
+                        _LowestValue = value.Value
                     End If
-                ElseIf DebugValue.Flags.isDrawingPoint Then
-                    Dim Pt As Point = DirectCast(DebugValue.Value, Point)
+                ElseIf value.Flags.isDrawingPoint Then
+                    Dim Pt As Point = DirectCast(value.Value, Point)
                     If (Right < Pt.X) Then _Right = Pt.X
                     If (Left > Pt.X) Then _Left = Pt.X
                     If (Bottom < Pt.Y) Then _Bottom = Pt.Y
                     If (Top > Pt.Y) Then _Top = Pt.Y
-                ElseIf DebugValue.Flags.isWindowsPoint Then
-                    Dim Pt As System.Windows.Point = DirectCast(DebugValue.Value, System.Windows.Point)
+                ElseIf value.Flags.isWindowsPoint Then
+                    Dim Pt As System.Windows.Point = DirectCast(value.Value, System.Windows.Point)
                     If (Right < Pt.X) Then _Right = Pt.X
                     If (Left > Pt.X) Then _Left = Pt.X
                     If (Bottom < Pt.Y) Then _Bottom = Pt.Y
                     If (Top > Pt.Y) Then _Top = Pt.Y
-                ElseIf DebugValue.Flags.isDrawingRectangle Then
-                    Dim Rect As Rectangle = DirectCast(DebugValue.Value, Rectangle)
+                ElseIf value.Flags.isDrawingRectangle Then
+                    Dim Rect As Rectangle = DirectCast(value.Value, Rectangle)
                     If (Right < Rect.Right) Then _Right = Rect.Right
                     If (Bottom < Rect.Bottom) Then _Bottom = Rect.Bottom
                     If (Left > Rect.Left) Then _Left = Rect.X
                     If (Top > Rect.Top) Then _Top = Rect.Y
-                ElseIf DebugValue.Flags.isShapesRect Then
-                    Dim Rect As System.Windows.Shapes.Rectangle = DirectCast(DebugValue.Value, System.Windows.Shapes.Rectangle)
+                ElseIf value.Flags.isShapesRect Then
+                    Dim Rect As System.Windows.Shapes.Rectangle = DirectCast(value.Value, System.Windows.Shapes.Rectangle)
                     If (Right < Rect.Margin.Right) Then _Right = Rect.Margin.Right
                     If (Bottom < Rect.Margin.Bottom) Then _Bottom = Rect.Margin.Bottom
                     If (Left > Rect.Margin.Left) Then _Left = Rect.Margin.Left
@@ -200,8 +202,9 @@ Namespace Collections
             Return c
         End Function
 
-        Public Sub New(GUID As String)
+        Public Sub New(GUID As String, Optional FirstValue As DebugValue = Nothing)
             _GUID = GUID
+            If NotNothing(FirstValue) Then AddValue(FirstValue)
         End Sub
 
     End Class

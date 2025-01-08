@@ -27,16 +27,17 @@ Namespace Collections
         End Property
         Private _Values As New List(Of DebugValue)
 
-        Public Property FieldLookup As New Dictionary(Of FieldReference, Integer)
-        Public Property PropertyLookup As New Dictionary(Of PropertyReference, Integer)
-
-
         Public ReadOnly Property Length As Integer
             Get
                 Return _Values.Length
             End Get
         End Property
 
+#End Region
+
+#Region "Cache"
+        Private Property FieldLookup As New Dictionary(Of FieldReference, Integer)
+        Private Property PropertyLookup As New Dictionary(Of PropertyReference, Integer)
 #End Region
 
 #Region "IDisposable"

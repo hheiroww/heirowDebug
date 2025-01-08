@@ -9,21 +9,26 @@ Imports MicroSerializationLibrary.Serialization
 Public Module Utils
 
 
-    Public Function ForceInvoke(action As Action) As Task
+    Public Sub ForceInvoke(action As Action)
         Dim frame As DispatcherFrame = New DispatcherFrame()
-        Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, New DispatcherOperationCallback(Function(parameter)
-                                                                                                                frame.[Continue] = False
-                                                                                                                Return Nothing
-                                                                                                            End Function), Nothing)
+        Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Send, New DispatcherOperationCallback(Function(parameter)
+                                                                                                              frame.[Continue] = False
+                                                                                                              Return Nothing
+                                                                                                          End Function), Nothing)
 
         Dispatcher.PushFrame(frame)
-        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Send)
-        'Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Background)
-    End Function
+        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Background)
+    End Sub
 
-    Public Function SoftInvoke(action As Action) As Task
-        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Send)
-    End Function
+    Public Sub ForceUI()
+        ForceInvoke(Sub()
+                    End Sub)
+    End Sub
+
+    Public Sub InvokeUI(action As Action)
+        Application.Current.Dispatcher.Invoke(action)
+        'ForceInvoke(action)
+    End Sub
 
     <Extension()>
     Public Function CloneObject(Of T)(Original As Object) As T

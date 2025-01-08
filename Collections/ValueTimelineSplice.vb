@@ -17,26 +17,6 @@ Namespace Collections
         End Property
         Private _Values As New List(Of DebugValue)
 
-        Public Property HighestValue As DebugValue
-            Get
-                Return _HighestValue
-            End Get
-            Set(value As DebugValue)
-                _HighestValue = value
-            End Set
-        End Property
-        Private _HighestValue As DebugValue
-
-        Public Property LowestValue As DebugValue
-            Get
-                Return _LowestValue
-            End Get
-            Set(value As DebugValue)
-                _LowestValue = value
-            End Set
-        End Property
-        Private _LowestValue As DebugValue
-
         Public ReadOnly Property isGraphable As Boolean
             Get
                 Return _isGraphable
@@ -54,14 +34,6 @@ Namespace Collections
                         _Values.Clear()
                         _Values = Nothing
                     End If
-                    If NotNothing(HighestValue) Then
-                        _HighestValue.Dispose()
-                        _HighestValue = Nothing
-                    End If
-                    If NotNothing(_LowestValue) Then
-                        _LowestValue.Dispose()
-                        _LowestValue = Nothing
-                    End If
                 End If
 
                 disposedValue = True
@@ -78,10 +50,8 @@ Namespace Collections
             Return c
         End Function
 
-        Public Sub New(Values As List(Of DebugValue), LowValue As DebugValue, HighValue As DebugValue)
+        Public Sub New(Values As List(Of DebugValue))
             _Values = Values
-            _LowestValue = LowValue
-            _HighestValue = HighValue
             _isGraphable = Values.Length > 0 AndAlso Values.First().Flags.isGraphable()
         End Sub
 
