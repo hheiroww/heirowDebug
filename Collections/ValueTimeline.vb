@@ -6,6 +6,9 @@ Namespace Collections
     Public Class ValueTimeline
         Implements IDisposable
 
+
+        Public Shared ReadOnly Property Timelines As New Dictionary(Of String, ValueTimeline)
+
 #Region "Properties"
         Public ReadOnly Property GUID As String
             Get

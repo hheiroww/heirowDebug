@@ -8,6 +8,32 @@ Imports MicroSerializationLibrary.Serialization
 
 Public Module Utils
 
+    Public ReadOnly Property MinimumInterval As TimeSpan = TimeSpan.FromTicks(2500)
+
+    Public Property FramesPerSecond
+        Get
+            Return _FramesPerSecond
+        End Get
+        Set(value)
+            _FramesPerSecond = value
+            _IntervalMilliseconds = 1000 / FramesPerSecond
+            _Interval = TimeSpan.FromMilliseconds(IntervalMilliseconds)
+        End Set
+    End Property
+    Private _FramesPerSecond As Integer = 30
+    Public ReadOnly Property IntervalMilliseconds As Double
+        Get
+            Return _IntervalMilliseconds
+        End Get
+    End Property
+    Private _IntervalMilliseconds As Double = 1000 / FramesPerSecond
+
+    Public ReadOnly Property Interval As TimeSpan
+        Get
+            Return _Interval
+        End Get
+    End Property
+    Private _Interval As TimeSpan = TimeSpan.FromMilliseconds(IntervalMilliseconds)
 
     Public Sub ForceInvoke(action As Action)
         Dim frame As DispatcherFrame = New DispatcherFrame()
@@ -17,7 +43,6 @@ Public Module Utils
                                                                                                           End Function), Nothing)
 
         Dispatcher.PushFrame(frame)
-        Application.Current.Dispatcher.Invoke(action, DispatcherPriority.Background)
     End Sub
 
     Public Sub ForceUI()
@@ -26,9 +51,21 @@ Public Module Utils
     End Sub
 
     Public Sub InvokeUI(action As Action)
-        Application.Current.Dispatcher.Invoke(action)
+        Try
+            Application.Current.Dispatcher.Invoke(action)
+        Catch ex As Exception
+
+        End Try
         'ForceInvoke(action)
     End Sub
+
+    Public Function ReturnValueUI(action As Func(Of Object)) As Object
+        Try
+            Return Application.Current.Dispatcher.Invoke(action)
+        Catch ex As Exception
+        End Try
+        'ForceInvoke(action)
+    End Function
 
     <Extension()>
     Public Function CloneObject(Of T)(Original As Object) As T
@@ -54,6 +91,10 @@ Public Module Utils
 
     Public Function NotNothing(obj As Object) As Boolean
         Return obj IsNot Nothing
+    End Function
+
+    Public Function IsSystemType(t As Type) As Boolean
+        Return t.Namespace.StartsWith("System")
     End Function
 
     Public Function ResolveValue(p As PropertyReference, Instance As Object)
@@ -109,7 +150,9 @@ Public Module Utils
                 ElseIf lastValueList.Count = currentValueList.Count Then
                     Dim LastArrayItem = lastValueList(ArrayIndex)
                     Dim ArrayValueChanged As Boolean = DidValueChange(ArrayItem, LastArrayItem)
-                    If ArrayValueChanged Then Results.ChangedIndexies.Add(ArrayIndex)
+                    If ArrayValueChanged Then
+                        Results.ChangedIndexies.Add(ArrayIndex)
+                    End If
                 ElseIf ArrayIndex > lastValueList.Count Then
                     Results.ChangedIndexies.Add(ArrayIndex)
                 End If
@@ -142,7 +185,9 @@ Public Module Utils
                 ElseIf lastValueList.Count = currentValueList.Count Then
                     Dim LastArrayItem = lastValueList(ArrayIndex)
                     Dim ArrayValueChanged As Boolean = DidValueChange(ArrayItem, LastArrayItem)
-                    If ArrayValueChanged Then Results.ChangedIndexies.Add(ArrayIndex)
+                    If ArrayValueChanged Then
+                        Results.ChangedIndexies.Add(ArrayIndex)
+                    End If
                 ElseIf ArrayIndex > lastValueList.Count Then
                     Results.ChangedIndexies.Add(ArrayIndex)
                 End If
@@ -160,10 +205,10 @@ Public Module Utils
             Return True
         ElseIf cValIsNothing AndAlso lValIsNothing Then
             Return False
-        ElseIf Not CurrentValue.Equals(LastValue) Then
-            Return True
+        ElseIf cValIsNothing AndAlso LastValue Is Nothing Then
+            Return False
         End If
-        Return False
+        Return Not CurrentValue.Equals(LastValue)
     End Function
 
     Public Function IsImmutable(type As Type, Optional depth As Integer = 5) As Boolean

@@ -10,7 +10,9 @@
 
         Public Property isSystem As Boolean
 
-        Public Property CalculatingChildren As Boolean
+        Public Property isChild As Boolean
+
+        Public Property isCollection As Boolean
 
         Public Property isList As Boolean
 
@@ -34,11 +36,6 @@
 
         Public Property isNothing As Boolean
 
-        Public Function SetCalcChildren(value As Boolean)
-            CalculatingChildren = value
-            Return Me
-        End Function
-
         Public Sub SetEmpty()
             isArray = False
             isList = False
@@ -46,7 +43,9 @@
             isSystem = False
             isBoolean = False
             isNumeric = False
+            isChild = False
             isIgnored = False
+            isCollection = False
             isDrawingPoint = False
             isWindowsPoint = False
             isDrawingRectangle = False
