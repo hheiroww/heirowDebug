@@ -15,7 +15,13 @@
             <ColumnDefinition Width="9*"/>
             <ColumnDefinition Width="23*"/>
         </Grid.ColumnDefinitions>
-        <TreeView x:Name="Watchers" Foreground="#FF7F7F7F" Background="#FF0E0E0E" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+        <TreeView x:Name="Watchers" Foreground="#FF7F7F7F" Background="#FF0E0E0E" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <TreeView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ContentPresenter, AncestorLevel=1}}" />
+                </ItemsPanelTemplate>
+            </TreeView.ItemsPanel>
+        </TreeView>
         <Grid x:Name="Plot" Background="#FF272727" Grid.Column="1">
             <Polygon x:Name="p" Fill="#A8A50000" Stroke="#FFCC0D0D" ClipToBounds="False" StrokeLineJoin="Round" StrokeEndLineCap="Round" StrokeStartLineCap="Round" StrokeDashCap="Round" RenderTransformOrigin="0.5,0.5" Stretch="Fill">
                 <Polygon.Points>

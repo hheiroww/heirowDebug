@@ -10,6 +10,7 @@ Imports System.Windows.Controls.Primitives
 Imports System.Windows.Input
 Imports System.Windows.Media
 Imports System.Windows.Media.Animation
+Imports System.Windows.Shapes
 Imports System.Xml.Serialization
 Imports ControlzEx.Theming
 Imports JackDebug.WPF.Collections
@@ -50,6 +51,7 @@ Public Class DebugWindow
     End Sub
 
     Private Sub Watchers_SelectedItemChanged(sender As Object, e As RoutedPropertyChangedEventArgs(Of Object)) Handles Watchers.SelectedItemChanged
+        If e.NewValue.GetType IsNot GetType(TreeViewItem) Then Return
         Dim TreeItem As TreeViewItem = DirectCast(e.NewValue, TreeViewItem)
         If Not SubItemSelected(TreeItem) Then SetTimeline(TreeItem.Tag)
     End Sub
@@ -254,6 +256,7 @@ Public Class DebugWindow
     Public Shared Property AnimationDuration As TimeSpan = TimeSpan.FromSeconds(0.75)
     Public Shared Property DefaultBackground As Color = Color.FromArgb(255, 37, 37, 37)
     Public Shared Property ValueChangedAnimation As New ColorAnimation(Colors.LimeGreen, DefaultBackground, AnimationDuration)
+    Public Shared Property SeparatorBrush As New SolidColorBrush(Colors.LightGray)
 
 #End Region
 
@@ -437,6 +440,7 @@ Public Class DebugWindow
 
     Private Function SubItemSelected(TVI As TreeViewItem) As Boolean
         For i As Integer = 0 To TVI.Items.Count - 1
+            If TVI.Items(i).GetType IsNot GetType(TreeViewItem) Then Continue For
             Dim item As TreeViewItem = TVI.Items(i)
             If item.IsSelected Then
                 Return True
@@ -460,39 +464,42 @@ Public Class DebugWindow
         Do While Enabled
             Dim nCount As Integer = WatcherCount
             If nCount <> InitializedWatchers.Count Then
-                For i As Integer = 0 To DebugWatcher.Watchers.Count - 1
-                    If Not Enabled Then Exit For
+                SyncLock (InitializedWatchers)
+                    Dim c As Integer = DebugWatcher.Watchers.Count - 1
+                    For i As Integer = 0 To c
+                        If Not Enabled Then Exit For
 
-                    Dim w As DebugWatcher = DebugWatcher.Watchers.Values.ElementAt(i)
-                    Dim t As Type = w.AttachedObject.GetType
+                        Dim w As DebugWatcher = DebugWatcher.Watchers.Values.ElementAt(i)
+                        Dim t As Type = w.AttachedObject.GetType
 
-                    Dim WatcherInitialized As Boolean = InitializedWatchers.ContainsKey(w.Guid)
-                    If Not WatcherInitialized Then
+                        Dim WatcherInitialized As Boolean = InitializedWatchers.ContainsKey(w.Guid)
+                        If Not WatcherInitialized Then
 
-                        If w.isChild Then
-                            Dim ParentInitialized As Boolean = InitializedWatchers.ContainsKey(w.Parent.Guid)
-                            Dim ParentValueInitialized As Boolean = TreeItems.ContainsKey(w.ParentValueGuid)
-                            If ParentInitialized And ParentValueInitialized Then
+                            If w.isChild Then
+                                Dim ParentInitialized As Boolean = InitializedWatchers.ContainsKey(w.Parent.Guid)
+                                Dim ParentValueInitialized As Boolean = TreeItems.ContainsKey(w.ParentValueGuid)
+                                If ParentInitialized And ParentValueInitialized Then
+                                    InvokeUI(Sub()
+                                                 InitializedWatchers.Add(w.Guid, w)
+                                                 ''' Recursive functionality disabled until finished.
+                                                 AddHandler w.ValueCalculated, AddressOf ValueCalculated
+                                                 AddHandler w.ValueChanged, AddressOf ValueChanged
+                                             End Sub)
+                                End If
+                            Else
+                                Dim NewWatcher As TreeViewItem = CreateTreeItem(t, w.Name, w.Guid)
                                 InvokeUI(Sub()
                                              InitializedWatchers.Add(w.Guid, w)
-                                             ''' Recursive functionality disabled until finished.
-                                             '''    AddHandler w.ValueCalculated, AddressOf ValueCalculated
-                                             '''    AddHandler w.ValueChanged, AddressOf ValueChanged
+                                             Watchers.Items.Add(NewWatcher)
+                                             TreeItems.Add(w.Guid, NewWatcher)
+                                             AddHandler w.ValueCalculated, AddressOf ValueCalculated
+                                             AddHandler w.ValueChanged, AddressOf ValueChanged
                                          End Sub)
                             End If
-                        Else
-                            Dim NewWatcher As TreeViewItem = CreateTreeItem(t, w.Name, w.Guid)
-                            InvokeUI(Sub()
-                                         InitializedWatchers.Add(w.Guid, w)
-                                         Watchers.Items.Add(NewWatcher)
-                                         TreeItems.Add(w.Guid, NewWatcher)
-                                         AddHandler w.ValueCalculated, AddressOf ValueCalculated
-                                         AddHandler w.ValueChanged, AddressOf ValueChanged
-                                     End Sub)
                         End If
-                    End If
-                Next
-                _WatcherCount = nCount
+                    Next
+                    _WatcherCount = nCount
+                End SyncLock
             End If
             If NotNothing(CurrentTimeline) Then
                 DrawTimeline()
@@ -513,16 +520,13 @@ Public Class DebugWindow
 #End Region
 
     Private Sub ValueChanged(Watcher As DebugWatcher, Value As DebugValue, ArrayIndexies As List(Of Integer))
-        InvokeUI(Sub()
-                     If ContainsTVI(Value) Then
-                         Dim TVI As TreeViewItem = TreeItems(Value.Guid)
-                         If Value.Flags.isCollection Then
-                             UpdateCollectionTVI(Watcher, Value)
-                         Else
-                             UpdateSingleTVI(Watcher, Value)
-                         End If
-                     End If
-                 End Sub)
+        If ContainsTVI(Value) Then
+            If Value.Flags.isCollection Then
+                UpdateCollectionTVI(Watcher, Value)
+            Else
+                UpdateSingleTVI(Watcher, Value)
+            End If
+        End If
         IterateIndex(Value)
     End Sub
 
@@ -558,7 +562,7 @@ Public Class DebugWindow
             Try
                 Dim ArrayItem As Object = Value.Value(Index)
                 If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
-                Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", GetValueString(ArrayItem.ToString()))
+                Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
                 Dim Header As String = "[" & Index & "] " & ValueToString
                 Dim ItemCount1 As Integer = ReturnValueUI(Function() TVI.Items.Count - 1)
                 If Index > ItemCount1 Then
@@ -589,7 +593,7 @@ Public Class DebugWindow
             If i > Value.Value.Count - 1 Then Exit For
             Dim Index As Integer = i
             Dim ArrayItem As Object = Value.Value(Index)
-            Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", GetValueString(ArrayItem.ToString()))
+            Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
             If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
             Dim Header As String = "[" & Index & "] " & ArrayType.Name & ": " & ValueToString
             If Index > TVI.Items.Count - 1 Then
@@ -618,7 +622,7 @@ Public Class DebugWindow
             If Index > Value.Value.Length - 1 Then Exit For
             Dim ArrayItemKey As Object = Value.KeyList(Index)
             Dim ArrayItemValue As Object = Value.ValueList(Index)
-            Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", GetValueString(ArrayItemValue.ToString()))
+            Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
             If ArrayType Is Nothing Then ArrayType = ArrayItemValue.GetType()
             Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
             If Index > TVI.Items.Count - 1 Then
@@ -673,9 +677,11 @@ Public Class DebugWindow
     End Sub
 
     Private Sub UpdateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
-        Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", GetValueString(Value.Value.ToString()))
-        Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
-        InvokeUI(Sub() UpdateHeader(GetTVI(Value), Header))
+        If ContainsTVI(Value) Then
+            Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Me.ValueToString(Value.Value.ToString()))
+            Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
+            InvokeUI(Sub() UpdateHeader(GetTVI(Value), Header))
+        End If
     End Sub
 
     Private Sub IterateIndex(Value As DebugValue)
@@ -697,6 +703,7 @@ Public Class DebugWindow
     Private Function ContainsTVI(Watcher As DebugWatcher) As Boolean
         Return TreeItems.ContainsKey(Watcher.Guid)
     End Function
+
     Private Function ContainsTVI(Guid As String) As Boolean
         Return TreeItems.ContainsKey(Guid)
     End Function
@@ -736,53 +743,39 @@ Public Class DebugWindow
                      End Sub)
 
         Next
-        If Watcher.isChild Then
-            AddChildTVI(TVI, Watcher, Value)
-        Else
-            AddTVI(TVI, Watcher, Value)
-        End If
+        AddTVI(TVI, Watcher, Value)
+
     End Sub
 
-    Private Sub AddChildTVI(TVI As TreeViewItem, Watcher As DebugWatcher, Value As DebugValue)
-        If Not ContainsTVI(Watcher.ParentValueGuid) Then
-            InvokeUI(Sub()
-                         Try
-                             Dim p As TreeViewItem = TreeItems(Watcher.ParentValueGuid)
-                             p.Items.Add(TVI)
-                             TreeItems.Add(Value.Guid, TVI)
-                             ValueChangedAnim(p)
-                             ValueChangedAnim(TVI)
-                         Catch : End Try
-                     End Sub)
-        End If
+    Private Sub CreateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
+        Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Me.ValueToString(Value.Value))
+        Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
+        Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Header, Value.Guid, Nothing)
+        AddTVI(TVI, Watcher, Value)
     End Sub
 
     Private Sub AddTVI(TVI As TreeViewItem, Watcher As DebugWatcher, Value As DebugValue)
         If Not ContainsTVI(Value) Then
             InvokeUI(Sub()
                          Try
-                             Dim p As TreeViewItem = TreeItems(Watcher.Guid)
-                             p.Items.Add(TVI)
+                             Dim ParentTVI As TreeViewItem
+                             If Watcher.isChild Then
+                                 ParentTVI = TreeItems(Watcher.ParentValueGuid)
+                             Else
+                                 ParentTVI = TreeItems(Watcher.Guid)
+                             End If
+
+                             ParentTVI.Items.Add(TVI)
                              TreeItems.Add(Value.Guid, TVI)
-                             ValueChangedAnim(p)
+                             ValueChangedAnim(ParentTVI)
                              ValueChangedAnim(TVI)
                          Catch : End Try
                      End Sub)
         End If
     End Sub
 
-    Private Sub CreateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
-        Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", GetValueString(Value.Value))
-        Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
-        Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Header, Value.Guid)
-        If Watcher.isChild Then
-            AddChildTVI(TVI, Watcher, Value)
-        Else
-            AddTVI(TVI, Watcher, Value)
-        End If
-    End Sub
-
-    Private Function GetValueString(Value As Object)
-        Return Value.ToString() '.Replace(",", vbCrLf & "         ")
+    Private Function ValueToString(Value As Object)
+        Return Value.ToString()
     End Function
+
 End Class
