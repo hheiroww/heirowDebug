@@ -20,7 +20,7 @@
             If Utils.IsNothing(Value) Then
                 _Value = Nothing
                 _IsNothing = True
-            ElseIf DebugValue.IgnoreTypes.Contains(Value.GetType) Then
+            ElseIf DebugWatcher.IgnoreTypes.Contains(Value.GetType) Then
                 _Value = Nothing
                 _IsNothing = True
             Else
