@@ -4,7 +4,6 @@ Imports System.Windows
 Imports JackDebug.WPF.Collections
 Imports JackDebug.WPF.States
 Imports MicroSerializationLibrary.Serialization
-Imports Microsoft.Xaml.Behaviors
 
 Namespace Values
     Public Class DebugValue
@@ -195,6 +194,11 @@ Namespace Values
 
 #End Region
 
+#Region "Caches"
+        Private ChildFields As New List(Of FieldReference)
+        Private ChildProperties As New List(Of PropertyReference)
+#End Region
+
 #Region "Overrides"
 
         Public Overrides Function ToString() As String
@@ -205,23 +209,14 @@ Namespace Values
 
 #Region "Shared"
 
-        Public Shared Function NewArrayOrListValue(Watcher As DebugWatcher, Index As Integer, Type As Type, Instance As Object, isRecursive As Boolean) As DebugValue
-            Dim Start As DateTime = DateTime.UtcNow
-            Dim SafeValue As New SafeValue(Instance(Index))
-            Dim CurrentValue As Object = SafeValue.Value
-
-            Dim Flags As TypeFlags = GetCollectionItemTypeFlags(SafeValue, Type, Index)
-
-            Dim TimeToCalculate As TimeSpan = DateTime.UtcNow - Start
-
-            Dim Out As New DebugValue("[" & Index & "]" & Type.Name, Nothing, Nothing, Type, Flags, CurrentValue, True, Nothing, New List(Of Integer), isRecursive) With {._CalculationTime = TimeToCalculate}
-            Out.Guid = Watcher.ParentValueGuid
-
-            TryCreateChildWatcher(Watcher, Flags, CurrentValue, isRecursive, Out, Index)
-            Return Out
-        End Function
-
-        Public Shared Function NewFieldValue(Watcher As DebugWatcher, FieldReference As FieldReference, Instance As Object, isRecursive As Boolean) As DebugValue
+        ''' <summary>
+        ''' Maximum time allowed for a type to be reflected and output before it get's blacklisted and no longer reported.
+        ''' </summary>
+        ''' <returns>Default is 0.125 Seconds.</returns>
+        Public Shared Property AutoIgnoreSlowTypesMaxTime As Double = 0.125
+        Public Shared Property AutoIgnoreSlowTypes As Boolean = True
+        Public Shared Property IgnoreTypes As Type() = New Type() {GetType(Bitmap)}
+        Public Shared Function NewFieldValue(Parent As DebugWatcher, FieldReference As FieldReference, Instance As Object, isRecursive As Boolean) As DebugValue
             Dim Start As DateTime = DateTime.UtcNow
             Dim SafeValue As New SafeValue(FieldReference.Info.GetValue(Instance))
             Dim CurrentValue As Object = SafeValue.Value
@@ -241,16 +236,19 @@ Namespace Values
                 ChangedIndexies = Results.ChangedIndexies
             End If
             Dim TimeToCalculate As TimeSpan = DateTime.UtcNow - Start
-            If Watcher.AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > Watcher.AutoIgnoreSlowTypesMaxTime Then
-                DebugWatcher.IgnoreTypes.Add(t)
+            If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                IgnoreTypes.Add(t)
             End If
-
             Dim Out As New DebugValue(FieldReference.Info.Name, FieldReference, Nothing, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
-            TryCreateChildWatcher(Watcher, Flags, CurrentValue, isRecursive, Out, FieldReference.Index)
+            If Not Flags.isSystem AndAlso Not Flags.isNothing AndAlso isRecursive Then
+                ''' Recursive Watcher creation.
+                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, isRecursive)
+                Flags.isChild = True
+            End If
             Return Out
         End Function
 
-        Public Shared Function NewPropertyValue(Watcher As DebugWatcher, PropertyReference As PropertyReference, Instance As Object, isRecursive As Boolean) As DebugValue
+        Public Shared Function NewPropertyValue(Parent As DebugWatcher, PropertyReference As PropertyReference, Instance As Object, isRecursive As Boolean) As DebugValue
             Dim Start As DateTime = DateTime.UtcNow
             Dim SafeValue As New SafeValue(PropertyReference.Info.GetValue(Instance))
             Dim CurrentValue As Object = SafeValue.Value
@@ -270,32 +268,17 @@ Namespace Values
                 ChangedIndexies = Results.ChangedIndexies
             End If
             Dim TimeToCalculate As TimeSpan = DateTime.UtcNow - Start
-            If Watcher.AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > Watcher.AutoIgnoreSlowTypesMaxTime Then
-                DebugWatcher.IgnoreTypes.Add(t)
+            If AutoIgnoreSlowTypes AndAlso TimeToCalculate.TotalSeconds > AutoIgnoreSlowTypesMaxTime Then
+                IgnoreTypes.Add(t)
             End If
             Dim Out As New DebugValue(PropertyReference.Info.Name, Nothing, PropertyReference, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
-            TryCreateChildWatcher(Watcher, Flags, CurrentValue, isRecursive, Out, PropertyReference.Index)
+            If Not Flags.isSystem AndAlso Flags.isNothing AndAlso isRecursive Then
+                ''' Recursive Watcher creation.
+                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, isRecursive)
+                Flags.isChild = True
+            End If
             Return Out
         End Function
-
-        Public Sub TryCreateChildWatcher(Watcher As DebugWatcher, CurrentValue As Object, Index As Integer)
-            TryCreateChildWatcher(Watcher, Flags, CurrentValue, IsRecursive, Me, Index)
-        End Sub
-
-        Public Shared Sub TryCreateChildWatcher(Watcher As DebugWatcher, Flags As TypeFlags, CurrentValue As Object, IsRecursive As Boolean, Out As DebugValue, Index As Integer)
-            If Not Flags.isSystem AndAlso Not Flags.isNothing AndAlso IsRecursive AndAlso Not Watcher.ChildIndexies.Contains(Index) Then
-                ''' Recursive Watcher creation.
-                Dim isDictionary As Boolean = Utils.IsDictionary(CurrentValue)
-                Dim isArray As Boolean = Utils.isArray(CurrentValue)
-                Dim isList As Boolean = Utils.IsList(CurrentValue)
-                If isArray Or isList Then
-                    DebugWatcher.CreateChild(Watcher, Out, CurrentValue, IsRecursive, True, Index)
-                ElseIf Not isDictionary Then
-                    DebugWatcher.CreateChild(Watcher, Out, CurrentValue, IsRecursive, False, Index)
-                End If
-                Flags.IsWatched = True
-            End If
-        End Sub
 
 #End Region
 
@@ -327,18 +310,11 @@ Namespace Values
             Return Me
         End Function
 
-        Public Shared Function GetCollectionItemTypeFlags(SafeValue As SafeValue, t As Type, Index As Integer) As TypeFlags
-            Dim Flags As TypeFlags = GetTypeFlags(SafeValue, t)
-            Flags.isCollectionItem = True
-            Flags.CollectionIndex = Index
-            Return Flags
-        End Function
-
         Public Shared Function GetTypeFlags(SafeValue As SafeValue, t As Type) As TypeFlags
             Dim Flags As New TypeFlags With {
             .isSystem = IsSystemType(t),
             .isBoolean = t Is GetType(Boolean),
-            .isIgnored = DebugWatcher.IgnoreTypes.Contains(t),
+            .isIgnored = IgnoreTypes.Contains(t),
             .isXAML = t Is GetType(DependencyObject)
         }
 
@@ -385,6 +361,12 @@ Namespace Values
             Dim CurrentValue = SafeValue.Value
             Dim ValueChanged As Boolean = False
 
+            If Not Flags.isSystem AndAlso Not SafeValue.IsNothing AndAlso IsRecursive AndAlso Not DebugWatcher.Watchers.ContainsKey(Guid) Then
+                ''' Recursive Watcher creation.
+                DebugWatcher.CreateChild(WorkerState.Watcher, Guid, CurrentValue, IsRecursive)
+                Flags.isChild = True
+            End If
+
             _Flags = GetTypeFlags(SafeValue, Type)
             If Flags.isArray Then
                 Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
@@ -406,7 +388,6 @@ Namespace Values
 
             _LastValue = Value
             _Value = CurrentValue
-            TryCreateChildWatcher(WorkerState.Watcher, CurrentValue, WorkerState.Reference.Index)
             Return SetValueChanged(ValueChanged)
         End Function
 

@@ -14,7 +14,6 @@ Imports JackDebug.WPF.Collections
 Imports MicroSerializationLibrary.Networking
 Imports JackDebug.WPF.DebugWatcher
 Imports JackDebug.WPF.States
-Imports System.Windows.Documents
 
 Public Class DebugWatcher
     Implements IDisposable
@@ -38,25 +37,15 @@ Public Class DebugWatcher
 
 #Region "Caches"
 
-    Private CollectionValues As New SortedDictionary(Of Integer, DebugValue)
     Private FieldValues As New SortedDictionary(Of Integer, DebugValue)
     Private PropertyValues As New SortedDictionary(Of Integer, DebugValue)
 
     Public ChildWatcherValues As New List(Of String)
     Public ChildWatcherGuids As New List(Of String)
-    Public ChildIndexies As New List(Of Integer)
 
 #End Region
 
 #Region "Shared"
-
-    ''' <summary>
-    ''' Maximum time allowed for a type to be reflected and output before it get's blacklisted and no longer reported.
-    ''' </summary>
-    ''' <returns>Default is 0.125 Seconds.</returns>
-    Public Property AutoIgnoreSlowTypesMaxTime As Double = 0.125
-    Public Property AutoIgnoreSlowTypes As Boolean = True
-    Public Shared Property IgnoreTypes As Type() = New Type() {GetType(Bitmap)}
 
     Public Shared Property EnableDispatcherProperties As Boolean = False
     Public Shared Property BlacklistedTypes As New List(Of Type)
@@ -82,28 +71,19 @@ Public Class DebugWatcher
     Public Event EnabledStateChanged(isEnabled As Boolean)
 
     ''' <summary>
-    ''' Raised when the watcher has a new value.
+    ''' Fires when the watcher has a new value.
     ''' </summary>
     ''' <param name="Watcher">The associated Watcher</param>
-    ''' <param name="Value">The Value that was processed</param>
+    ''' <param name="Value">The Value that was calculated/processed</param>
     Public Event ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
 
     ''' <summary>
-    ''' Raised when non-system collection value calculation is finished.
-    ''' </summary>
-    ''' <param name="Watcher">The associated Watcher</param>
-    ''' <param name="Value">The Value that was processed</param>
-    Public Event CollectionCalculated(Watcher As DebugWatcher, Values As List(Of DebugValue), ParentValueGuid As String)
-
-    ''' <summary>
-    ''' Raised when main & child Item Value Changes.
+    ''' Detects main & child Item Value Changes
     ''' </summary>
     ''' <param name="Watcher">The associated Watcher</param>
     ''' <param name="Value">The Value that changed</param>
     ''' <param name="ArrayIndexies">The Index(s) that have changed</param>
     Public Event ValueChanged(Watcher As DebugWatcher, Value As DebugValue, ArrayIndexies As List(Of Integer))
-
-    Public Event ArrayValueChanged(Watcher As DebugWatcher, Value As DebugValue, Index As Integer)
 
     Public Sub OnChangedValue(Watcher As DebugWatcher, ChangedValue As DebugValue)
         RaiseEvent ValueChanged(Watcher, ChangedValue, ChangedValue.ChangedIndexies)
@@ -118,7 +98,6 @@ Public Class DebugWatcher
 #Region "Properties"
 
     Public Property Guid As String = System.Guid.NewGuid().ToString()
-
     Public Property ValueCount As Integer = 0
 
     Public Shared Property FirstTimeEnabled As DateTime = Nothing
@@ -164,40 +143,12 @@ Public Class DebugWatcher
     End Property
     Private _ParentValueGuid As String
 
-    Public ReadOnly Property ValueType As Type
+    Public ReadOnly Property isChild As Boolean
         Get
-            Return _ValueType
+            Return _isChild
         End Get
     End Property
-    Private _ValueType As Type
-
-    Public ReadOnly Property CollectionType As Type
-        Get
-            Return _CollectionType
-        End Get
-    End Property
-    Private _CollectionType As Type
-
-    Public ReadOnly Property IsCollectionOf As Boolean
-        Get
-            Return _IsCollectionOf
-        End Get
-    End Property
-    Private _IsCollectionOf As Boolean = False
-
-    Public ReadOnly Property CollectionIndex As Integer
-        Get
-            Return _CollectionIndex
-        End Get
-    End Property
-    Private _CollectionIndex As Integer = -1
-
-    Public ReadOnly Property IsChildWatcher As Boolean
-        Get
-            Return _IsChildWatcher
-        End Get
-    End Property
-    Private _IsChildWatcher As Boolean = False
+    Private _isChild As Boolean = False
 
     Public Property isEnabled As Boolean
         Get
@@ -268,62 +219,39 @@ Public Class DebugWatcher
     ''' <param name="ParentValueGuid"></param>
     ''' <param name="AttachedTo"></param>
     ''' <param name="Recursive">Recursive functionality disabled until finished.</param>
-    ''' <param name="IsCollectionOf">This is for if the value is an array/list. Dictionary not yet supported.</param>
-    Public Sub New(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean, Optional CollectionIndex As Integer = -1, Optional IsCollectionOf As Boolean = False, Optional IsChild As Boolean = False)
+    Public Sub New(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean)
         _Recursive = Recursive
         _Parent = Parent
-        _IsCollectionOf = IsCollectionOf
+        _isChild = True
         _ParentValueGuid = ParentValueGuid
-        _IsChildWatcher = IsChild
-        _CollectionIndex = CollectionIndex
-        ChildIndexies.Add(CollectionIndex)
         Parent.ChildWatcherValues.Add(ParentValueGuid)
         Parent.ChildWatcherGuids.Add(Guid)
-        Initialize(AttachedTo, "", IsCollectionOf)
+        Initialize(AttachedTo)
         isEnabled = Parent.isEnabled
     End Sub
 
-    Private Sub Initialize(ByRef AttachedTo As Object, Optional Name As String = "", Optional isCollectionOf As Boolean = False)
+    Private Sub Initialize(ByRef AttachedTo As Object, Optional Name As String = "")
         _Name = If(Name = "", AttachedTo.GetType().ToString(), Name)
         _AttachedObject = AttachedTo
         DeserializationWrapper.ReflectionFlags = BindingFlags.Instance Or BindingFlags.[Public] Or BindingFlags.NonPublic
 
-        _ValueType = AttachedObject.GetType()
-
-        Dim isArray As Boolean = Utils.isArray(AttachedTo)
-        Dim isList As Boolean = Utils.IsList(AttachedTo)
-
-        If isArray Then
-            _CollectionType = ValueType.GetElementType()
-        ElseIf isList Then
-            _CollectionType = ValueType.GenericTypeArguments.First()
-        End If
-
-        If isCollectionOf AndAlso Not Utils.IsSystemType(CollectionType) Then
-            _Fields = DeserializationWrapper.GetFieldReferences(CollectionType).ToArray()
-            _Properties = DeserializationWrapper.GetPropertyReferences(CollectionType).ToArray()
-        Else
-            _Fields = DeserializationWrapper.GetFieldReferences(ValueType).ToArray()
-            _Properties = DeserializationWrapper.GetPropertyReferences(ValueType).ToArray()
-        End If
+        _Fields = DeserializationWrapper.GetFieldReferences(AttachedObject.GetType()).ToArray()
+        _Properties = DeserializationWrapper.GetPropertyReferences(AttachedObject.GetType()).ToArray()
 
         ValueCount = If(Fields IsNot Nothing, _Fields.Count, 0) + If(Properties IsNot Nothing, _Properties.Count, 0)
         If NotNothing(Parent) Then
             isEnabled = Parent.isEnabled
         End If
         DebugWatcher.Watchers.Add(Guid, Me)
+
     End Sub
 
-    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValue As DebugValue, ByRef AttachedTo As Object, Recursive As Boolean, IsCollectionOf As Boolean, Index As Integer) As DebugWatcher
-        If Parent IsNot Nothing AndAlso Not Parent.ChildWatcherValues.Contains(ParentValue.Guid) Then
-            Dim w As New DebugWatcher(Parent, ParentValue.Guid, AttachedTo, Recursive, Index, IsCollectionOf, True)
+    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValueGuid As String, ByRef AttachedTo As Object, Recursive As Boolean) As DebugWatcher
+        If Parent IsNot Nothing AndAlso Not Parent.ChildWatcherValues.Contains(ParentValueGuid) Then
+            Dim w As New DebugWatcher(Parent, ParentValueGuid, AttachedTo, Recursive)
             Return w
         End If
         Return Nothing
-    End Function
-
-    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValue As DebugValue, ByRef AttachedTo As Object, Recursive As Boolean) As DebugWatcher
-        Return CreateChild(Parent, ParentValue, AttachedTo, Recursive, False, -1)
     End Function
 
     Private Sub DisposeWorkers()
@@ -337,29 +265,25 @@ Public Class DebugWatcher
 
     Private Sub CreateWorkers()
         DisposeWorkers()
-        If IsCollectionOf Then
-            Dim timer As New Timer(New TimerCallback(AddressOf Calculate_CollectionWorker), AttachedObject, 0, Timeout.Infinite)
-            Workers.Add(timer)
-        Else
-            For i As Integer = 0 To Fields.Length - 1
-                Dim index As Integer = i
-                Dim f As FieldReference = Fields(index)
-                If Not IgnoreTypes.Contains(f.Info.FieldType) Then
-                    Dim timer As New Timer(New TimerCallback(AddressOf Calculate_FieldWorker), f, 0, Timeout.Infinite)
-                    Workers.Add(timer)
-                End If
-            Next
+        For i As Integer = 0 To Fields.Length - 1
+            Dim index As Integer = i
 
-            For i As Integer = 0 To Properties.Count - 1
-                Dim index As Integer = i
-                Dim bw As New BackgroundWorker With {.WorkerSupportsCancellation = True}
-                Dim p As PropertyReference = Properties(index)
-                If Not IgnoreTypes.Contains(p.Info.PropertyType) Then
-                    Dim timer As New Timer(New TimerCallback(AddressOf Calculate_PropertyWorker), p, 0, Timeout.Infinite)
-                    Workers.Add(timer)
-                End If
-            Next
-        End If
+            Dim f As FieldReference = Fields(index)
+            If Not DebugValue.IgnoreTypes.Contains(f.Info.FieldType) Then
+                Dim timer As New Timer(New TimerCallback(AddressOf FieldWorker_Calculate), f, 0, Timeout.Infinite)
+                Workers.Add(timer)
+            End If
+        Next
+
+        For i As Integer = 0 To Properties.Count - 1
+            Dim index As Integer = i
+            Dim bw As New BackgroundWorker With {.WorkerSupportsCancellation = True}
+            Dim p As PropertyReference = Properties(index)
+            If Not DebugValue.IgnoreTypes.Contains(p.Info.PropertyType) Then
+                Dim timer As New Timer(New TimerCallback(AddressOf PropertyWorker_Calculate), p, 0, Timeout.Infinite)
+                Workers.Add(timer)
+            End If
+        Next
     End Sub
 
 #End Region
@@ -368,17 +292,7 @@ Public Class DebugWatcher
 
     Private Workers As New List(Of Timer)
 
-    Private Sub Calculate_CollectionWorker(ArrayOrList As Object)
-        If ArrayOrList IsNot Nothing Then
-            Dim Out As New List(Of DebugValue)
-            For i As Integer = 0 To ArrayOrList.Length - 1
-                Out.Add(DebugValue.NewArrayOrListValue(Me, i, CollectionType, ArrayOrList, IsRecursive))
-            Next
-            RaiseEvent CollectionCalculated(Me, Out, ParentValueGuid)
-        End If
-    End Sub
-
-    Private Sub Calculate_FieldWorker(state As Object)
+    Private Sub FieldWorker_Calculate(state As Object)
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.UtcNow
             Dim Reference As FieldReference = DirectCast(state, FieldReference)
@@ -422,7 +336,7 @@ Public Class DebugWatcher
         Loop
     End Sub
 
-    Private Sub Calculate_PropertyWorker(state As Object)
+    Private Sub PropertyWorker_Calculate(state As Object)
         Do While isEnabled
             Dim StartTime As DateTime = DateTime.UtcNow
             Dim Reference As PropertyReference = DirectCast(state, PropertyReference)
@@ -483,7 +397,7 @@ Public Class DebugWatcher
     Public Function CurrentFieldValue(f As FieldReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
             If FieldValues.ContainsKey(f.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Watcher = Me, .Reference = f, .Instance = AttachedObject}
+                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject}
                 Return FieldValues(f.Index).UpdateValue(StateObject)
             Else
                 Dim newValue As DebugValue = DebugValue.NewFieldValue(Me, f, AttachedObject, IsRecursive).SetValueChanged(True)
@@ -497,7 +411,7 @@ Public Class DebugWatcher
     Public Function CurrentPropertyValue(p As PropertyReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
             If PropertyValues.ContainsKey(p.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Watcher = Me, .Reference = p, .Instance = AttachedObject}
+                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject}
                 Return PropertyValues(p.Index).UpdateValue(StateObject)
             Else
                 Dim newValue As DebugValue = DebugValue.NewPropertyValue(Me, p, AttachedObject, IsRecursive).SetValueChanged(True)

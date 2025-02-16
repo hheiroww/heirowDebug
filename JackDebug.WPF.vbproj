@@ -16,10 +16,10 @@
     <Description>Debug your WPF application easily with JackDebug.</Description>
     <PackageProjectUrl>https://JackOfAllFates.com/</PackageProjectUrl>
     <PackageIcon>Dark_noBG_face_256.png</PackageIcon>
-    <PackageReleaseNotes>Added non-system recursive collection resolution.</PackageReleaseNotes>
+    <PackageReleaseNotes>Added recursive functionality.</PackageReleaseNotes>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © JackOfFates 2024</Copyright>
-    <Version>1.1.2.1</Version>
+    <Version>1.1.2.0</Version>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageReadmeFile>JackDebug_README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/JackOfFates/Jack-Debug</RepositoryUrl>

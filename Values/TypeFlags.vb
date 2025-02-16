@@ -10,12 +10,9 @@
 
         Public Property isSystem As Boolean
 
-        Public Property IsWatched As Boolean
+        Public Property isChild As Boolean
 
         Public Property isCollection As Boolean
-
-        Public Property isCollectionItem As Boolean
-        Public Property CollectionIndex As Integer = -1
 
         Public Property isList As Boolean
 
@@ -46,11 +43,9 @@
             isSystem = False
             isBoolean = False
             isNumeric = False
-            IsWatched = False
+            isChild = False
             isIgnored = False
             isCollection = False
-            isCollectionItem = False
-            CollectionIndex = -1
             isDrawingPoint = False
             isWindowsPoint = False
             isDrawingRectangle = False
