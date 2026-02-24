@@ -1,7 +1,0 @@
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\JackDebug.csproj.AssemblyReference.cache
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\DebugWindow.g.cs
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\JackDebug_MarkupCompile.cache
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\JackDebug_MarkupCompile.lref
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\JackDebug.dll
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\refint\JackDebug.dll
-C:\Users\Vin\source\repos\wShare\JackDebug\obj\Debug\net6.0-windows\JackDebug.pdb

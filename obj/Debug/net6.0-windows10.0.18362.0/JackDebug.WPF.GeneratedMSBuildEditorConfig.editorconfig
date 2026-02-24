@@ -1,5 +1,7 @@
 is_global = true
 build_property.TargetFramework = net6.0-windows10.0.18362.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v6.0
 build_property.TargetPlatformMinVersion = 10.0.18362.0
 build_property.UsingMicrosoftNETSdkWeb = 
 build_property.ProjectTypeGuids = 
@@ -8,7 +10,7 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = JackDebug.WPF
-build_property.ProjectDir = C:\Users\Vin\Documents\GitHub\Jack-Debug\
+build_property.ProjectDir = C:\Users\Patho\source\repos\JackOfFates\Jack-Debug\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTAotOptimizerEnabled = true

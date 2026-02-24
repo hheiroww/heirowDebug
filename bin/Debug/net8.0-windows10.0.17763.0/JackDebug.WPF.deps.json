@@ -31,8 +31,7 @@
       },
       "ControlzEx/4.4.0": {
         "dependencies": {
-          "Microsoft.Xaml.Behaviors.Wpf": "1.1.19",
-          "System.Text.Json": "4.7.2"
+          "Microsoft.Xaml.Behaviors.Wpf": "1.1.19"
         },
         "runtime": {
           "lib/netcoreapp3.1/ControlzEx.dll": {
@@ -103,8 +102,7 @@
             "fileVersion": "9.0.24.52901"
           }
         }
-      },
-      "System.Text.Json/4.7.2": {}
+      }
     }
   },
   "libraries": {
@@ -159,13 +157,6 @@
       "sha512": "sha512-uoozjI3+dlgKh2onFJcz8aNLh6TRCPlLSh8Dbuljc8CdvqXrxHOVysJlrHvlsOCqceqGBR1wrMPxlnzzhynktw==",
       "path": "system.drawing.common/9.0.0",
       "hashPath": "system.drawing.common.9.0.0.nupkg.sha512"
-    },
-    "System.Text.Json/4.7.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-TcMd95wcrubm9nHvJEQs70rC0H/8omiSGGpU4FQ/ZA1URIqD4pjmFJh2Mfv1yH1eHgJDWTi2hMDXwTET+zOOyg==",
-      "path": "system.text.json/4.7.2",
-      "hashPath": "system.text.json.4.7.2.nupkg.sha512"
     }
   }
 }

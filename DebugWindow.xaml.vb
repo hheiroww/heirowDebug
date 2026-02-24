@@ -39,6 +39,7 @@ Public Class DebugWindow
         SetRange()
     End Sub
 
+
     Private Sub SetRange()
         If isUserChangingLower Or isUserChangingUpper Then Return
         Range = If(isAtBeginning And isAtEnd, MaxRange, Math.Min(Upper - Lower, MaxRange))
@@ -53,14 +54,23 @@ Public Class DebugWindow
     Private Sub Watchers_SelectedItemChanged(sender As Object, e As RoutedPropertyChangedEventArgs(Of Object)) Handles Watchers.SelectedItemChanged
         If e.NewValue.GetType IsNot GetType(TreeViewItem) Then Return
         Dim TreeItem As TreeViewItem = DirectCast(e.NewValue, TreeViewItem)
-        If Not SubItemSelected(TreeItem) Then SetTimeline(TreeItem.Tag)
+        If Not SubItemSelected(TreeItem) Then
+            Dim tag As String = TryCast(TreeItem.Tag, String)
+            Dim parentItem As TreeViewItem = TryCast(TreeItem.Parent, TreeViewItem)
+            While tag Is Nothing AndAlso parentItem IsNot Nothing
+                tag = TryCast(parentItem.Tag, String)
+                parentItem = TryCast(parentItem.Parent, TreeViewItem)
+            End While
+            SetTimeline(tag)
+        End If
     End Sub
 
     Private Sub DebugWindow_Closing(sender As Object, e As CancelEventArgs) Handles Me.Closing
         Enabled = False
         BackgroundWorker.Dispose()
-        For i As Integer = 0 To DebugWatcher.Watchers.Count - 1
-            DebugWatcher.Watchers.Values(i).Dispose()
+        Dim watchersToDispose = DebugWatcher.Watchers.Values.ToList()
+        For Each w In watchersToDispose
+            w.Dispose()
         Next
         DebugWatcher.Watchers.Clear()
     End Sub
@@ -433,6 +443,7 @@ Public Class DebugWindow
 
     Private Sub SetTimeline(Guid As String)
         ClearPoints()
+        If Guid Is Nothing Then Return
         If ValueTimeline.Timelines.ContainsKey(Guid) Then
             CurrentTimeline = ValueTimeline.Timelines(Guid)
         End If
@@ -556,12 +567,10 @@ Public Class DebugWindow
     Private Sub UpdateArrayTVI(TVI As TreeViewItem, Value As DebugValue)
         Dim ArrayType As Type = Nothing
         For i As Integer = 0 To Value.Length - 1
-            If Value.Length - 1 < i Then Exit For
             Dim Index As Integer = i
-            If Index < 0 Then Exit For
             Try
                 Dim ArrayItem As Object = Value.Value(Index)
-                If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
+                If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItem) Then ArrayType = ArrayItem.GetType()
                 Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
                 Dim Header As String = "[" & Index & "] " & ValueToString
                 Dim ItemCount1 As Integer = ReturnValueUI(Function() TVI.Items.Count - 1)
@@ -581,6 +590,15 @@ Public Class DebugWindow
                             Try : UpdateHeader(TVI.Items(Index), Header, TVI) : Catch : End Try
                         End Sub)
                 End If
+                If Not IsNothing(ArrayItem) AndAlso Not IsSystemType(ArrayItem.GetType()) Then
+                    Dim elementTVI As TreeViewItem = Nothing
+                    InvokeUI(Sub()
+                                 If Index <= TVI.Items.Count - 1 Then
+                                     Try : elementTVI = DirectCast(TVI.Items(Index), TreeViewItem) : Catch : End Try
+                                 End If
+                             End Sub)
+                    If elementTVI IsNot Nothing Then UpdateItemProperties(elementTVI, ArrayItem)
+                End If
             Catch
             End Try
         Next
@@ -589,77 +607,163 @@ Public Class DebugWindow
     Private Sub UpdateListTVI(TVI As TreeViewItem, Value As DebugValue)
         Dim ArrayType As Type = Nothing
         Dim L As Integer = Value.Length - 1
-        For i As Integer = i To L
-            If i > Value.Value.Count - 1 Then Exit For
-            Dim Index As Integer = i
-            Dim ArrayItem As Object = Value.Value(Index)
-            Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
-            If ArrayType Is Nothing Then ArrayType = ArrayItem.GetType()
-            Dim Header As String = "[" & Index & "] " & ArrayType.Name & ": " & ValueToString
-            If Index > TVI.Items.Count - 1 Then
-                Dim aTVI As TreeViewItem = CreateTreeItem(ArrayType, Header, Value.Guid)
-                InvokeUI(
+        For i As Integer = 0 To L
+            Try
+                If i > Value.Value.Count - 1 Then Exit For
+                Dim Index As Integer = i
+                Dim ArrayItem As Object = Value.Value(Index)
+                Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
+                If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItem) Then ArrayType = ArrayItem.GetType()
+                Dim TypeName As String = If(ArrayType IsNot Nothing, ArrayType.Name, "Object")
+                Dim Header As String = "[" & Index & "] " & TypeName & ": " & ValueToString
+                If Index > TVI.Items.Count - 1 Then
+                    Dim aTVI As TreeViewItem = CreateTreeItem(If(ArrayType, GetType(Object)), Header, Value.Guid)
+                    InvokeUI(
                     Sub()
                         If Index > Value.Value.Count - 1 Then Return
                         If TVI.Parent Is Nothing Then Return
                         Try : TVI.Items.Add(aTVI) : ValueChangedAnim(TVI) : ValueChangedAnim(aTVI) : Catch : End Try
                     End Sub)
-            Else
-                InvokeUI(
+                Else
+                    InvokeUI(
                     Sub()
                         If Index > Value.Value.Count - 1 Then Return
                         If TVI.Parent Is Nothing Then Return
                         Try : UpdateHeader(TVI.Items(Index), Header, TVI) : Catch : End Try
                     End Sub)
-            End If
+                End If
+                If Not IsNothing(ArrayItem) AndAlso Not IsSystemType(ArrayItem.GetType()) Then
+                    Dim elementTVI As TreeViewItem = Nothing
+                    InvokeUI(Sub()
+                                 If Index <= TVI.Items.Count - 1 Then
+                                     Try : elementTVI = DirectCast(TVI.Items(Index), TreeViewItem) : Catch : End Try
+                                 End If
+                             End Sub)
+                    If elementTVI IsNot Nothing Then UpdateItemProperties(elementTVI, ArrayItem)
+                End If
+            Catch
+            End Try
         Next
     End Sub
 
     Private Sub UpdateDictionaryTVI(TVI As TreeViewItem, Value As DebugValue)
         Dim ArrayType As Type = Nothing
-        For i As Integer = i To Value.KeyList.Count - 1
+        For i As Integer = 0 To Value.KeyList.Count - 1
             Dim Index As Integer = i
-            If Index > Value.Value.Length - 1 Then Exit For
-            Dim ArrayItemKey As Object = Value.KeyList(Index)
-            Dim ArrayItemValue As Object = Value.ValueList(Index)
-            Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
-            If ArrayType Is Nothing Then ArrayType = ArrayItemValue.GetType()
-            Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
-            If Index > TVI.Items.Count - 1 Then
-                Dim aTVI As TreeViewItem = CreateTreeItem(ArrayType, Header, Value.Guid)
-                InvokeUI(
+            Try
+                If Index > Value.Value.Length - 1 Then Exit For
+                Dim ArrayItemKey As Object = Value.KeyList(Index)
+                Dim ArrayItemValue As Object = Value.ValueList(Index)
+                Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
+                If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItemValue) Then ArrayType = ArrayItemValue.GetType()
+                Dim TypeName As String = If(ArrayType IsNot Nothing, ArrayType.Name, "Object")
+                Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
+                If Index > TVI.Items.Count - 1 Then
+                    Dim aTVI As TreeViewItem = CreateTreeItem(If(ArrayType, GetType(Object)), Header, Value.Guid)
+                    InvokeUI(
                     Sub()
                         If Index > Value.Value.Count - 1 Then Return
                         If TVI.Parent Is Nothing Then Return
                         Try : TVI.Items.Add(aTVI) : ValueChangedAnim(TVI) : ValueChangedAnim(aTVI) : Catch : End Try
                     End Sub)
-            Else
-                InvokeUI(
+                Else
+                    InvokeUI(
                     Sub()
                         If Index > Value.Value.Count - 1 Then Return
                         If TVI.Parent Is Nothing Then Return
                         Try : UpdateHeader(TVI.Items(Index), Header, TVI) : Catch : End Try
                     End Sub)
-            End If
+                End If
+                If Not IsNothing(ArrayItemValue) AndAlso Not IsSystemType(ArrayItemValue.GetType()) Then
+                    Dim elementTVI As TreeViewItem = Nothing
+                    InvokeUI(Sub()
+                                 If Index <= TVI.Items.Count - 1 Then
+                                     Try : elementTVI = DirectCast(TVI.Items(Index), TreeViewItem) : Catch : End Try
+                                 End If
+                             End Sub)
+                    If elementTVI IsNot Nothing Then UpdateItemProperties(elementTVI, ArrayItemValue)
+                End If
+            Catch
+            End Try
         Next
     End Sub
 
-    Private Sub PruneCollection(TVI As TreeViewItem, Value As DebugValue)
-        If Value.Length <= 0 AndAlso Not Value.Flags.isChild Then TVI.Items.Clear()
-        Dim ItemCount2 As Integer = ReturnValueUI(Function() TVI.Items.Count - 1)
-        If ItemCount2 > Value.Length - 1 Then
-            Dim Length As Integer = 0
-            For x As Integer = ItemCount2 To Length Step 1
-                Dim Index As Integer = x
-                Dim [Continue] As Boolean = False
-                InvokeUI(Sub()
-                             If TVI.Items.Count > 0 AndAlso TVI.Items.Count - 1 <= Index Then
-                                 Try : TVI.Items.RemoveAt(Index) : Catch : End Try
+    Private Sub UpdateItemProperties(aTVI As TreeViewItem, item As Object)
+        If item Is Nothing Then Return
+
+        Dim itemType As Type = item.GetType()
+        If IsSystemType(itemType) Then Return
+        If GetType(System.Windows.Threading.DispatcherObject).IsAssignableFrom(itemType) Then Return
+
+        Dim headerTexts As New List(Of String)
+        Dim toolTips As New List(Of String)
+        Try
+            For Each f As FieldInfo In itemType.GetFields(BindingFlags.Instance Or BindingFlags.Public)
+                If DebugValue.IgnoreTypes.Contains(f.FieldType) Then Continue For
+                Try
+                    Dim fVal As Object = f.GetValue(item)
+                    Dim valueStr As String = If(IsNothing(fVal), "NULL", Me.ValueToString(fVal.ToString()))
+                    headerTexts.Add(f.Name & ": " & valueStr)
+                    toolTips.Add(f.FieldType.Name)
+                Catch
+                End Try
+            Next
+
+            For Each p As PropertyInfo In itemType.GetProperties(BindingFlags.Instance Or BindingFlags.Public)
+                If Not p.CanRead Then Continue For
+                If p.GetIndexParameters().Length > 0 Then Continue For
+                If DebugValue.IgnoreTypes.Contains(p.PropertyType) Then Continue For
+                Try
+                    Dim pVal As Object = p.GetValue(item)
+                    Dim valueStr As String = If(IsNothing(pVal), "NULL", Me.ValueToString(pVal.ToString()))
+                    headerTexts.Add(p.Name & ": " & valueStr)
+                    toolTips.Add(p.PropertyType.Name)
+                Catch
+                End Try
+            Next
+        Catch
+            Return
+        End Try
+
+        If headerTexts.Count = 0 Then Return
+
+        InvokeUI(Sub()
+                     Try
+                         For idx As Integer = 0 To headerTexts.Count - 1
+                             If idx > aTVI.Items.Count - 1 Then
+                                 Dim childTVI As New TreeViewItem()
+                                 childTVI.Header = headerTexts(idx)
+                                 childTVI.ToolTip = toolTips(idx)
+                                 childTVI.Background = New SolidColorBrush(DefaultBackground)
+                                 aTVI.Items.Add(childTVI)
+                                 ValueChangedAnim(childTVI)
                              Else
-                                 [Continue] = True
+                                 UpdateHeader(DirectCast(aTVI.Items(idx), TreeViewItem), headerTexts(idx))
+                             End If
+                         Next
+
+                         While aTVI.Items.Count > headerTexts.Count
+                             aTVI.Items.RemoveAt(aTVI.Items.Count - 1)
+                         End While
+                     Catch
+                     End Try
+                 End Sub)
+    End Sub
+
+    Private Sub PruneCollection(TVI As TreeViewItem, Value As DebugValue)
+        If Value.Length <= 0 AndAlso Not Value.Flags.isChild Then
+            InvokeUI(Sub() TVI.Items.Clear())
+            Return
+        End If
+        Dim ItemCount As Integer = ReturnValueUI(Function() TVI.Items.Count)
+        If ItemCount > Value.Length Then
+            For x As Integer = ItemCount - 1 To Value.Length Step -1
+                Dim Index As Integer = x
+                InvokeUI(Sub()
+                             If TVI.Items.Count > Index Then
+                                 Try : TVI.Items.RemoveAt(Index) : Catch : End Try
                              End If
                          End Sub)
-                If [Continue] Then Continue For
             Next
         End If
     End Sub
@@ -712,13 +816,11 @@ Public Class DebugWindow
         Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Value.Name, Value.Guid)
 
         Dim ArrayType As Type = Nothing
-        Dim index As Integer = 0
         Dim L As Integer = Value.Length - 1
         For i As Integer = 0 To L
-            index = i
+            Dim index As Integer = i
             If Value.Flags.isDictionary Then
                 If index > Value.Value.Count - 1 Then Exit For
-                Value.Value.GetType().GetGenericArguments()
                 ArrayType = Value.Type.GetGenericArguments()(1)
             ElseIf Value.Flags.isList Then
                 If index > Value.Value.Count - 1 Then Exit For

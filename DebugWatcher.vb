@@ -1,18 +1,9 @@
-Imports System.ComponentModel
 Imports MicroSerializationLibrary.Serialization
 Imports MicroSerializationLibrary
-Imports System.Runtime.CompilerServices
-Imports System.Windows.Threading
-Imports System.Windows
 Imports System.Reflection
 Imports System.Threading
-Imports System.Windows.Input.Manipulations
-Imports System.Text.RegularExpressions
-Imports System.Runtime.InteropServices
 Imports JackDebug.WPF.Values
 Imports JackDebug.WPF.Collections
-Imports MicroSerializationLibrary.Networking
-Imports JackDebug.WPF.DebugWatcher
 Imports JackDebug.WPF.States
 
 Public Class DebugWatcher
@@ -23,7 +14,30 @@ Public Class DebugWatcher
     Protected Overridable Sub Dispose(disposing As Boolean)
         If Not disposedValue Then
             If disposing Then
+                _isEnabled = False
                 DisposeWorkers()
+
+                ' Remove from static dictionary to prevent memory leak
+                If Watchers.ContainsKey(Guid) Then
+                    Watchers.Remove(Guid)
+                End If
+
+                ' Dispose and clear cached values
+                For Each kvp In FieldValues
+                    kvp.Value.Dispose()
+                Next
+                FieldValues.Clear()
+
+                For Each kvp In PropertyValues
+                    kvp.Value.Dispose()
+                Next
+                PropertyValues.Clear()
+
+                ChildWatcherValues.Clear()
+                ChildWatcherGuids.Clear()
+
+                _AttachedObject = Nothing
+                _Parent = Nothing
             End If
 
             disposedValue = True
@@ -51,6 +65,7 @@ Public Class DebugWatcher
     Public Shared Property BlacklistedTypes As New List(Of Type)
     Public Shared Property Watchers As New Dictionary(Of String, DebugWatcher)
     Public Shared Property DebugWindow As DebugWindow
+    Public Shared Property MaxRecursionDepth As Integer = 2
 
     Public Shared Sub CreateDebugWindow()
         If DebugWindow IsNot Nothing Then
@@ -143,6 +158,13 @@ Public Class DebugWatcher
     End Property
     Private _ParentValueGuid As String
 
+    Public ReadOnly Property Depth As Integer
+        Get
+            Return _Depth
+        End Get
+    End Property
+    Private _Depth As Integer = 0
+
     Public ReadOnly Property isChild As Boolean
         Get
             Return _isChild
@@ -157,7 +179,11 @@ Public Class DebugWatcher
         Set(value As Boolean)
             Dim oldState As Boolean = isEnabled
             _isEnabled = value
-            If isEnabled Then CreateWorkers()
+            If isEnabled Then
+                CreateWorkers()
+            Else
+                DisposeWorkers()
+            End If
             For i As Integer = 0 To ChildWatcherGuids.Count - 1
                 Dim ChildGuid As String = ChildWatcherGuids(i)
                 If DebugWatcher.Watchers.ContainsKey(ChildGuid) Then
@@ -224,13 +250,14 @@ Public Class DebugWatcher
         _Parent = Parent
         _isChild = True
         _ParentValueGuid = ParentValueGuid
+        _Depth = Parent.Depth + 1
         Parent.ChildWatcherValues.Add(ParentValueGuid)
         Parent.ChildWatcherGuids.Add(Guid)
         Initialize(AttachedTo)
         isEnabled = Parent.isEnabled
     End Sub
 
-    Private Sub Initialize(ByRef AttachedTo As Object, Optional Name As String = "")
+    Private Sub Initialize(AttachedTo As Object, Optional Name As String = "")
         _Name = If(Name = "", AttachedTo.GetType().ToString(), Name)
         _AttachedObject = AttachedTo
         DeserializationWrapper.ReflectionFlags = BindingFlags.Instance Or BindingFlags.[Public] Or BindingFlags.NonPublic
@@ -246,8 +273,9 @@ Public Class DebugWatcher
 
     End Sub
 
-    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValueGuid As String, ByRef AttachedTo As Object, Recursive As Boolean) As DebugWatcher
+    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean) As DebugWatcher
         If Parent IsNot Nothing AndAlso Not Parent.ChildWatcherValues.Contains(ParentValueGuid) Then
+            If Parent.Depth >= MaxRecursionDepth Then Return Nothing
             Dim w As New DebugWatcher(Parent, ParentValueGuid, AttachedTo, Recursive)
             Return w
         End If
@@ -255,33 +283,30 @@ Public Class DebugWatcher
     End Function
 
     Private Sub DisposeWorkers()
-        If Workers.Count > 0 Then
-            For i As Integer = Workers.Count - 1 To 0 Step -1
-                Workers(i).Dispose()
-                Workers.RemoveAt(i)
-            Next
+        If _workerCts IsNot Nothing Then
+            _workerCts.Cancel()
+            _workerCts.Dispose()
+            _workerCts = Nothing
         End If
+        Workers.Clear()
     End Sub
 
     Private Sub CreateWorkers()
         DisposeWorkers()
-        For i As Integer = 0 To Fields.Length - 1
-            Dim index As Integer = i
+        _workerCts = New CancellationTokenSource()
+        Dim token As CancellationToken = _workerCts.Token
 
-            Dim f As FieldReference = Fields(index)
+        For i As Integer = 0 To Fields.Length - 1
+            Dim f As FieldReference = Fields(i)
             If Not DebugValue.IgnoreTypes.Contains(f.Info.FieldType) Then
-                Dim timer As New Timer(New TimerCallback(AddressOf FieldWorker_Calculate), f, 0, Timeout.Infinite)
-                Workers.Add(timer)
+                Workers.Add(Task.Run(Function() WorkerCalculateAsync(f, token)))
             End If
         Next
 
         For i As Integer = 0 To Properties.Count - 1
-            Dim index As Integer = i
-            Dim bw As New BackgroundWorker With {.WorkerSupportsCancellation = True}
-            Dim p As PropertyReference = Properties(index)
+            Dim p As PropertyReference = Properties(i)
             If Not DebugValue.IgnoreTypes.Contains(p.Info.PropertyType) Then
-                Dim timer As New Timer(New TimerCallback(AddressOf PropertyWorker_Calculate), p, 0, Timeout.Infinite)
-                Workers.Add(timer)
+                Workers.Add(Task.Run(Function() WorkerCalculateAsync(p, token)))
             End If
         Next
     End Sub
@@ -290,95 +315,67 @@ Public Class DebugWatcher
 
 #Region "Background Workers"
 
-    Private Workers As New List(Of Timer)
+    Private Workers As New List(Of Task)
+    Private _workerCts As CancellationTokenSource
 
-    Private Sub FieldWorker_Calculate(state As Object)
-        Do While isEnabled
+    Private Shared Function IsThreadSafeType(t As Type) As Boolean
+        Return Not GetType(System.Windows.Threading.DispatcherObject).IsAssignableFrom(t)
+    End Function
+
+    Private Async Function WorkerCalculateAsync(state As Object, token As CancellationToken) As Task
+        Dim memberType As Type = If(TypeOf state Is FieldReference,
+            DirectCast(state, FieldReference).Info.FieldType,
+            DirectCast(state, PropertyReference).Info.PropertyType)
+        If Not IsThreadSafeType(memberType) Then Return
+
+        Do While isEnabled AndAlso Not token.IsCancellationRequested
             Dim StartTime As DateTime = DateTime.UtcNow
-            Dim Reference As FieldReference = DirectCast(state, FieldReference)
-            Dim v As DebugValue = CurrentFieldValue(Reference)
-            Dim Endtime As DateTime
-            Dim ResultInterval As TimeSpan
-            Dim ms As Double = 0
+            Dim v As DebugValue = Nothing
 
-            If NotNothing(v) Then
-                If v.Guid IsNot Nothing Then
-                    If Not ValueTimeline.Timelines.ContainsKey(v.Guid) Then
-                        SyncLock (ValueTimeline.Timelines)
-                            Dim value As DebugValue = v.Clone()
-                            ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
-                            Endtime = DateTime.UtcNow
-                            ResultInterval = TimeSpan.FromTicks(Endtime.Ticks - StartTime.Ticks)
-                            ms = ResultInterval.TotalMilliseconds
-                            value.CalculationTime = ResultInterval
-                            OnValueCalculated(Me, value)
-                            If value.ValueChanged Then OnChangedValue(Me, value)
-                        End SyncLock
-                    Else
-                        Dim value As DebugValue = v.Clone()
-                        ValueTimeline.Timelines(value.Guid).AddValue(value)
-                        Endtime = DateTime.UtcNow
-                        ResultInterval = TimeSpan.FromTicks(Endtime.Ticks - StartTime.Ticks)
-                        ms = ResultInterval.TotalMilliseconds
-                        value.CalculationTime = ResultInterval
-                        OnValueCalculated(Me, value)
-                        If value.ValueChanged Then OnChangedValue(Me, value)
-                    End If
+            Try
+                If TypeOf state Is FieldReference Then
+                    v = CurrentFieldValue(DirectCast(state, FieldReference))
+                Else
+                    v = CurrentPropertyValue(DirectCast(state, PropertyReference))
                 End If
-            End If
-            If ms < IntervalMilliseconds Then
-                Dim diff As Double = Math.Min(Math.Max(0, Interval.TotalMilliseconds - ResultInterval.TotalMilliseconds), Interval.TotalMilliseconds)
-                Dim ActualWaitTime As TimeSpan = TimeSpan.FromMilliseconds(diff)
-                If diff > 0 Then Thread.Sleep(ActualWaitTime)
-            Else
-                Thread.Sleep(MinimumInterval)
-            End If
-        Loop
-    End Sub
+            Catch
+            End Try
 
-    Private Sub PropertyWorker_Calculate(state As Object)
-        Do While isEnabled
-            Dim StartTime As DateTime = DateTime.UtcNow
-            Dim Reference As PropertyReference = DirectCast(state, PropertyReference)
-            Dim v As DebugValue = CurrentPropertyValue(Reference)
-            Dim Endtime As DateTime
-            Dim ResultInterval As TimeSpan
+            Dim ResultInterval As TimeSpan = TimeSpan.Zero
             Dim ms As Double = 0
+            Dim value As DebugValue = Nothing
+            Dim valueChanged As Boolean = False
 
-            If NotNothing(v) Then
-                If v.Guid IsNot Nothing Then
-                    If Not ValueTimeline.Timelines.ContainsKey(v.Guid) Then
-                        SyncLock (ValueTimeline.Timelines)
-                            Dim value As DebugValue = v.Clone()
-                            ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
-                            Endtime = DateTime.UtcNow
-                            ResultInterval = TimeSpan.FromTicks(Endtime.Ticks - StartTime.Ticks)
-                            ms = ResultInterval.TotalMilliseconds
-                            value.CalculationTime = ResultInterval
-                            OnValueCalculated(Me, value)
-                            If value.ValueChanged Then OnChangedValue(Me, value)
-                        End SyncLock
+            If NotNothing(v) AndAlso v.Guid IsNot Nothing Then
+                SyncLock (ValueTimeline.Timelines)
+                    value = v.Clone()
+                    If Not ValueTimeline.Timelines.ContainsKey(value.Guid) Then
+                        ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
                     Else
-                        Dim value As DebugValue = v.Clone()
                         ValueTimeline.Timelines(value.Guid).AddValue(value)
-                        Endtime = DateTime.UtcNow
-                        ResultInterval = TimeSpan.FromTicks(Endtime.Ticks - StartTime.Ticks)
-                        ms = ResultInterval.TotalMilliseconds
-                        value.CalculationTime = ResultInterval
-                        OnValueCalculated(Me, value)
-                        If value.ValueChanged Then OnChangedValue(Me, value)
                     End If
+                    ResultInterval = DateTime.UtcNow - StartTime
+                    ms = ResultInterval.TotalMilliseconds
+                    value.CalculationTime = ResultInterval
+                    valueChanged = value.ValueChanged
+                End SyncLock
+
+                OnValueCalculated(Me, value)
+                If valueChanged Then OnChangedValue(Me, value)
+            End If
+
+            Try
+                If ms < IntervalMilliseconds Then
+                    Dim diff As Double = Math.Min(Math.Max(0, Interval.TotalMilliseconds - ResultInterval.TotalMilliseconds), Interval.TotalMilliseconds)
+                    If diff > 0 Then Await Task.Delay(TimeSpan.FromMilliseconds(diff), token)
+                Else
+                    Await Task.Delay(MinimumInterval, token)
                 End If
-            End If
-            If ms < IntervalMilliseconds Then
-                Dim diff As Double = Math.Min(Math.Max(0, Interval.TotalMilliseconds - ResultInterval.TotalMilliseconds), Interval.TotalMilliseconds)
-                Dim ActualWaitTime As TimeSpan = TimeSpan.FromMilliseconds(diff)
-                If diff > 0 Then Thread.Sleep(ActualWaitTime)
-            Else
-                Thread.Sleep(MinimumInterval)
-            End If
+            Catch ex As OperationCanceledException
+                Exit Do
+            End Try
         Loop
-    End Sub
+    End Function
 
 #End Region
 
@@ -397,12 +394,12 @@ Public Class DebugWatcher
     Public Function CurrentFieldValue(f As FieldReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
             If FieldValues.ContainsKey(f.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject}
+                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject, .Watcher = Me}
                 Return FieldValues(f.Index).UpdateValue(StateObject)
             Else
                 Dim newValue As DebugValue = DebugValue.NewFieldValue(Me, f, AttachedObject, IsRecursive).SetValueChanged(True)
                 FieldValues.Add(f.Index, newValue)
-                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid, newValue))
+                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
                 Return newValue
             End If
         End SyncLock
@@ -411,7 +408,7 @@ Public Class DebugWatcher
     Public Function CurrentPropertyValue(p As PropertyReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
             If PropertyValues.ContainsKey(p.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject}
+                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject, .Watcher = Me}
                 Return PropertyValues(p.Index).UpdateValue(StateObject)
             Else
                 Dim newValue As DebugValue = DebugValue.NewPropertyValue(Me, p, AttachedObject, IsRecursive).SetValueChanged(True)

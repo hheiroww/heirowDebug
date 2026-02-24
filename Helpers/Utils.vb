@@ -167,6 +167,7 @@ Public Module Utils
         Dim isNothing As Boolean = LastValue Is Nothing
         Dim LastValueIsNothing As Boolean = If(isNothing, True, LastValue Is Nothing)
         Dim CurrentValueIsNothing As Boolean = If(isNothing, True, CurrentValue Is Nothing)
+        If isNothing Then Return New ArrayCompareResults()
         Dim lDict As IList() = Utils.CreateGenericDictionary(LastValue)
         Dim lastListKeys As IList = lDict(0)
         Dim lastValueList As IList = lDict(1)
