@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "JackDebug.WPF/1.1.2.0": {
+      "JackDebug.WPF/1.2.0.0": {
         "dependencies": {
           "MahApps.Metro": "2.4.10",
           "MicroSerializationLibrary": "1.1.2.22",
@@ -93,7 +93,7 @@
     }
   },
   "libraries": {
-    "JackDebug.WPF/1.1.2.0": {
+    "JackDebug.WPF/1.2.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -13,132 +13,26 @@
     <SourceRoot Include="C:\Users\Patho\.nuget\packages\" />
     <SourceRoot Include="C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\" />
   </ItemGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.17763.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
+  <ItemGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <Content Include="$(NuGetPackageRoot)socketjack.wpf\1.4.5\contentFiles\any\net8.0-windows7.0\License.txt" Condition="Exists('$(NuGetPackageRoot)socketjack.wpf\1.4.5\contentFiles\any\net8.0-windows7.0\License.txt')">
+      <NuGetPackageId>SocketJack.WPF</NuGetPackageId>
+      <NuGetPackageVersion>1.4.5</NuGetPackageVersion>
+      <NuGetItemType>Content</NuGetItemType>
+      <Pack>false</Pack>
+      <Private>False</Private>
+      <Link>License.txt</Link>
+    </Content>
+    <Content Include="$(NuGetPackageRoot)socketjack.wpf\1.4.5\contentFiles\any\net8.0-windows7.0\SocketJackIcon.png" Condition="Exists('$(NuGetPackageRoot)socketjack.wpf\1.4.5\contentFiles\any\net8.0-windows7.0\SocketJackIcon.png')">
+      <NuGetPackageId>SocketJack.WPF</NuGetPackageId>
+      <NuGetPackageVersion>1.4.5</NuGetPackageVersion>
+      <NuGetItemType>Content</NuGetItemType>
+      <Pack>false</Pack>
+      <Private>False</Private>
+      <Link>SocketJackIcon.png</Link>
+    </Content>
+  </ItemGroup>
+  <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.18362.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.19041.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.20348.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.22621.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows10.0.26100.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows7.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0-windows8.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.17763.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.18362.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.19041.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.20348.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.22621.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows10.0.26100.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows7.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net7.0-windows8.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.17763.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.18362.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.19041.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.20348.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.22621.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows10.0.26100.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows7.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows8.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.17763.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.18362.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.19041.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.20348.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.22621.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows10.0.26100.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows7.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows8.0' AND '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Xaml_Behaviors_Wpf Condition=" '$(PkgMicrosoft_Xaml_Behaviors_Wpf)' == '' ">C:\Users\Patho\.nuget\packages\microsoft.xaml.behaviors.wpf\1.1.19</PkgMicrosoft_Xaml_Behaviors_Wpf>
-    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.10</PkgMahApps_Metro>
+    <PkgMahApps_Metro Condition=" '$(PkgMahApps_Metro)' == '' ">C:\Users\Patho\.nuget\packages\mahapps.metro\2.4.11</PkgMahApps_Metro>
   </PropertyGroup>
 </Project>

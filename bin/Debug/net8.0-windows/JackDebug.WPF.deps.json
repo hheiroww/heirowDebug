@@ -1,0 +1,227 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "JackDebug.WPF/1.4.0.0": {
+        "dependencies": {
+          "MahApps.Metro": "2.4.11",
+          "SocketJack.WPF": "1.4.5",
+          "System.Drawing.Common": "10.0.3"
+        },
+        "runtime": {
+          "JackDebug.WPF.dll": {}
+        }
+      },
+      "ControlzEx/4.4.0": {
+        "dependencies": {
+          "Microsoft.Xaml.Behaviors.Wpf": "1.1.19",
+          "System.Text.Json": "9.0.7"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/ControlzEx.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.4.0.50"
+          }
+        }
+      },
+      "MahApps.Metro/2.4.11": {
+        "dependencies": {
+          "ControlzEx": "4.4.0"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/MahApps.Metro.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.4.11.0"
+          }
+        },
+        "resources": {
+          "lib/netcoreapp3.1/de/MahApps.Metro.resources.dll": {
+            "locale": "de"
+          }
+        }
+      },
+      "Microsoft.Win32.SystemEvents/10.0.3": {
+        "runtime": {
+          "lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf/1.1.19": {
+        "runtime": {
+          "lib/netcoreapp3.0/Microsoft.Xaml.Behaviors.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.19.35512"
+          }
+        }
+      },
+      "Mono.Nat/3.0.4": {
+        "runtime": {
+          "lib/net6.0/Mono.Nat.dll": {
+            "assemblyVersion": "3.0.0.0",
+            "fileVersion": "3.0.4.0"
+          }
+        }
+      },
+      "SocketJack.WPF/1.4.5": {
+        "dependencies": {
+          "Mono.Nat": "3.0.4",
+          "System.Drawing.Common": "10.0.3",
+          "System.Text.Encodings.Web": "9.0.7",
+          "System.Text.Json": "9.0.7"
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/SocketJack.WPF.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "System.Drawing.Common/10.0.3": {
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "10.0.3"
+        },
+        "runtime": {
+          "lib/net8.0/System.Drawing.Common.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          },
+          "lib/net8.0/System.Private.Windows.Core.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          },
+          "lib/net8.0/System.Private.Windows.GdiPlus.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "System.IO.Pipelines/9.0.7": {
+        "runtime": {
+          "lib/net8.0/System.IO.Pipelines.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.725.31616"
+          }
+        }
+      },
+      "System.Text.Encodings.Web/9.0.7": {
+        "runtime": {
+          "lib/net8.0/System.Text.Encodings.Web.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.725.31616"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll": {
+            "rid": "browser",
+            "assetType": "runtime",
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.725.31616"
+          }
+        }
+      },
+      "System.Text.Json/9.0.7": {
+        "dependencies": {
+          "System.IO.Pipelines": "9.0.7",
+          "System.Text.Encodings.Web": "9.0.7"
+        },
+        "runtime": {
+          "lib/net8.0/System.Text.Json.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.725.31616"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "JackDebug.WPF/1.4.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ControlzEx/4.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-pZ5z4hYWwE4R13UMCVs6vII//nL7hz+Nwn4oJlnsZJRGqJNy6Z9KnJiTZfly6lKFu0pMc1aWBZpx+VqFTQKP1Q==",
+      "path": "controlzex/4.4.0",
+      "hashPath": "controlzex.4.4.0.nupkg.sha512"
+    },
+    "MahApps.Metro/2.4.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-pvk757N/ViZy+zlbB56AakryuZkts328M6pX2mMn/Z7r5ifkScDrS300zSBjLd+eGOPeHgUjH4f7cZbRiMyvQg==",
+      "path": "mahapps.metro/2.4.11",
+      "hashPath": "mahapps.metro.2.4.11.nupkg.sha512"
+    },
+    "Microsoft.Win32.SystemEvents/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-gYpwz5Gl0rs9pEFHBKctLbSi7SUGR4L1uRjXkU488nizWd2hvo2JP2+ATUsv0th7v6LDiXfdlUsnTbvC2MauFA==",
+      "path": "microsoft.win32.systemevents/10.0.3",
+      "hashPath": "microsoft.win32.systemevents.10.0.3.nupkg.sha512"
+    },
+    "Microsoft.Xaml.Behaviors.Wpf/1.1.19": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5sPWkbqImc2t1aQwIfJcKsUo7tOg1Tr8+6xVzZJB56Nzt4u9NlpcLofgdX/aRYpPKdWDA3U23Akw1KQzU5e82g==",
+      "path": "microsoft.xaml.behaviors.wpf/1.1.19",
+      "hashPath": "microsoft.xaml.behaviors.wpf.1.1.19.nupkg.sha512"
+    },
+    "Mono.Nat/3.0.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-oodXnwdcML4qUaZ+J44gaC/hn0n3uZHkvxScdt8NOcBbmbNmA7z1t5FEvUvn8cOnYSha8F4ZS57FJuXSKYhqdw==",
+      "path": "mono.nat/3.0.4",
+      "hashPath": "mono.nat.3.0.4.nupkg.sha512"
+    },
+    "SocketJack.WPF/1.4.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xY2GqTGsPtlxrsUZzPcZX7OSeGk37JTaKWMIYx0LbpNbAoymE8x4oo7K7PwcoBLeOP/Of8VJTk+o7UFBxZZIbg==",
+      "path": "socketjack.wpf/1.4.5",
+      "hashPath": "socketjack.wpf.1.4.5.nupkg.sha512"
+    },
+    "System.Drawing.Common/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-bJlT89G7EqMpiLCvIPmb7BHpcSxjVeFsahRyQk3/mrUt5YgHKiFcEv88db97gKcpRn5opxfBwI0ohUmJlxuGJg==",
+      "path": "system.drawing.common/10.0.3",
+      "hashPath": "system.drawing.common.10.0.3.nupkg.sha512"
+    },
+    "System.IO.Pipelines/9.0.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-I9KHYFNKQkufs/Ec7evpPPSu2HkuW+jNpq1kT0WOWjzuN6BjxRYy7CuWNLjQmuBzcKd9vKrHaPGcHVxSF5DadQ==",
+      "path": "system.io.pipelines/9.0.7",
+      "hashPath": "system.io.pipelines.9.0.7.nupkg.sha512"
+    },
+    "System.Text.Encodings.Web/9.0.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-WswuKENaV4gC4ZYZi8BhehJHHRdyZQzXEYv/lV8DHW9FwkdnKaTutdRbK/S1wHZtKUUzzptBPAX2XOxdoURkMw==",
+      "path": "system.text.encodings.web/9.0.7",
+      "hashPath": "system.text.encodings.web.9.0.7.nupkg.sha512"
+    },
+    "System.Text.Json/9.0.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-u/lN2FEEXs3ghj2ta8tWA4r2MS9Yni07K7jDmnz8h1UPDf0lIIIEMkWx383Zz4fJjJio7gDl+00RYuQ/7R8ZQw==",
+      "path": "system.text.json/9.0.7",
+      "hashPath": "system.text.json.9.0.7.nupkg.sha512"
+    }
+  }
+}

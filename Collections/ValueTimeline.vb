@@ -1,6 +1,6 @@
 ﻿Imports System.Windows.Controls
 Imports JackDebug.WPF.Values
-Imports MicroSerializationLibrary.Serialization
+Imports SocketJack.Serialization
 
 Namespace Collections
     Public Class ValueTimeline
@@ -194,6 +194,16 @@ Namespace Collections
                     If (Bottom < Rect.Margin.Bottom) Then _Bottom = Rect.Margin.Bottom
                     If (Left > Rect.Margin.Left) Then _Left = Rect.Margin.Left
                     If (Top > Rect.Margin.Top) Then _Top = Rect.Margin.Top
+                ElseIf value.Flags.isString Then
+                    Dim sLen As Integer = If(value.Value IsNot Nothing, CStr(value.Value).Length, 0)
+                    If _HighestValue Is Nothing OrElse (CInt(_HighestValue) < sLen) Then _HighestValue = sLen
+                    If _LowestValue Is Nothing OrElse (CInt(_LowestValue) > sLen) Then _LowestValue = sLen
+                ElseIf value.Flags.isVector Then
+                    Dim Vec As System.Windows.Vector = DirectCast(value.Value, System.Windows.Vector)
+                    If (Right < Vec.X) Then _Right = Vec.X
+                    If (Left > Vec.X) Then _Left = Vec.X
+                    If (Bottom < Vec.Y) Then _Bottom = Vec.Y
+                    If (Top > Vec.Y) Then _Top = Vec.Y
                 End If
             End If
         End Sub

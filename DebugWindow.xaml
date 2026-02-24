@@ -30,10 +30,16 @@
                     </PointCollection>
                 </Polygon.Points>
             </Polygon>
+            <Canvas x:Name="SpatialCanvas" Background="Transparent" Visibility="Collapsed" ClipToBounds="True"/>
+            <Canvas x:Name="SpatialAxisLeft" Visibility="Collapsed" Width="40" HorizontalAlignment="Left" ClipToBounds="True"/>
+            <Canvas x:Name="SpatialAxisBottom" Visibility="Collapsed" Height="20" VerticalAlignment="Bottom" ClipToBounds="True"/>
             <TextBlock x:Name="LowLabel" Foreground="WhiteSmoke" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="5,0,0,5">0</TextBlock>
             <TextBlock x:Name="HighLabel" Foreground="WhiteSmoke" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,5,5,0">100</TextBlock>
+            <Button x:Name="AddWatchButton" Content="Add Watch" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20,10" FontSize="14" Background="#FF2D2D30" Foreground="WhiteSmoke" BorderBrush="#FF3F3F46"/>
+            <CheckBox x:Name="InvertSpatialCheckBox" Content="Invert" Foreground="WhiteSmoke" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="45,5,0,0" Visibility="Collapsed" FontSize="10" IsChecked="True"/>
+            <TextBox x:Name="StringValueTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" TextWrapping="Wrap" Background="#FF272727" Foreground="WhiteSmoke" BorderThickness="0" Visibility="Collapsed" FontFamily="Consolas" FontSize="12" Padding="5"/>
         </Grid>
-        <Grid x:Name="TimelineGrid" Background="#FF212121" Grid.Column="1" Margin="0,374,0,0" Grid.RowSpan="2">
+        <Grid x:Name="TimelineGrid" Background="#FF212121" Grid.Column="1" Margin="0,0,0,0" Grid.Row="1">
             <mah:RangeSlider x:Name="Slider" Margin="10,10,10,10" MinRangeWidth="0" UpperValue="100" MinRange="10" SmallChange="1"/>
         </Grid>
         <StackPanel Orientation="Horizontal" Grid.Row="1" VerticalAlignment="Center" Margin="7,0,0,0" Height="41">

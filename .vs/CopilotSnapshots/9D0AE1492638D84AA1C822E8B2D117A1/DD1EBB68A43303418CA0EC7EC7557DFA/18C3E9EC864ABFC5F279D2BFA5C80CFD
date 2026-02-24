@@ -1,0 +1,314 @@
+﻿Imports SocketJack.Serialization
+Imports SocketJack
+Imports System.Reflection
+Imports System.Threading
+Imports JackDebug.WPF.Values
+Imports JackDebug.WPF.Collections
+Imports JackDebug.WPF.States
+
+Public Class DebugWatcher
+    Implements IDisposable
+
+#Region "IDisposable"
+    Private disposedValue As Boolean
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If Not disposedValue Then
+            If disposing Then
+                _isEnabled = False
+                DisposeWorkers()
+
+                ' Remove from static dictionary to prevent memory leak
+                If Watchers.ContainsKey(Guid) Then
+                    Watchers.Remove(Guid)
+                End If
+
+                ' Dispose and clear cached values
+                For Each kvp In FieldValues
+                    kvp.Value.Dispose()
+                Next
+                FieldValues.Clear()
+
+                For Each kvp In PropertyValues
+                    kvp.Value.Dispose()
+                Next
+                PropertyValues.Clear()
+
+                ChildWatcherValues.Clear()
+                ChildWatcherGuids.Clear()
+
+                _AttachedObject = Nothing
+                _Parent = Nothing
+            End If
+
+            disposedValue = True
+        End If
+    End Sub
+    Public Sub Dispose() Implements IDisposable.Dispose
+        Dispose(disposing:=True)
+        GC.SuppressFinalize(Me)
+    End Sub
+#End Region
+
+#Region "Caches"
+
+    Private FieldValues As New SortedDictionary(Of Integer, DebugValue)
+    Private PropertyValues As New SortedDictionary(Of Integer, DebugValue)
+
+    Public ChildWatcherValues As New List(Of String)
+    Public ChildWatcherGuids As New List(Of String)
+
+#End Region
+
+#Region "Shared"
+
+    Public Shared Property EnableDispatcherProperties As Boolean = False
+    Public Shared Property BlacklistedTypes As New List(Of Type)
+    Public Shared Property Watchers As New Dictionary(Of String, DebugWatcher)
+    Public Shared Property DebugWindow As DebugWindow
+    Public Shared Property MaxRecursionDepth As Integer = 2
+
+    Public Shared Sub CreateDebugWindow()
+        If DebugWindow IsNot Nothing Then
+            If DebugWindow.Enabled Then
+                DebugWindow.Enabled = False
+                DebugWindow.Close()
+                DebugWindow = Nothing
+            End If
+        End If
+        DebugWindow = New DebugWindow()
+        DebugWindow.Show()
+    End Sub
+
+#End Region
+
+#Region "Events"
+
+    Public Event EnabledStateChanged(isEnabled As Boolean)
+
+    ''' <summary>
+    ''' Fires when the watcher has a new value.
+    ''' </summary>
+    ''' <param name="Watcher">The associated Watcher</param>
+    ''' <param name="Value">The Value that was calculated/processed</param>
+    Public Event ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+
+    ''' <summary>
+    ''' Detects main & child Item Value Changes
+    ''' </summary>
+    ''' <param name="Watcher">The associated Watcher</param>
+    ''' <param name="Value">The Value that changed</param>
+    ''' <param name="ArrayIndexies">The Index(s) that have changed</param>
+    Public Event ValueChanged(Watcher As DebugWatcher, Value As DebugValue, ArrayIndexies As List(Of Integer))
+
+    Public Sub OnChangedValue(Watcher As DebugWatcher, ChangedValue As DebugValue)
+        RaiseEvent ValueChanged(Watcher, ChangedValue, ChangedValue.ChangedIndexies)
+    End Sub
+
+    Public Sub OnValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+        RaiseEvent ValueCalculated(Watcher, Value)
+    End Sub
+
+#End Region
+
+
+#Region "Initializers"
+
+    ''' <summary>
+    ''' Create a new DebugWatcher
+    ''' </summary>
+    Public Sub New(AttachedTo As Object)
+        Initialize(AttachedTo)
+    End Sub
+
+    ''' <summary>
+    ''' Create a new DebugWatcher
+    ''' </summary>
+    ''' <param name="AttachedTo">The target object for debugging.</param>
+    ''' <param name="Recursive">Recursive functionality disabled until finished.</param>
+    Public Sub New(AttachedTo As Object, Recursive As Boolean)
+        _Recursive = Recursive
+        Initialize(AttachedTo)
+    End Sub
+
+    ''' <summary>
+    ''' Only for use internally.
+    ''' </summary>
+    ''' <param name="Parent"></param>
+    ''' <param name="ParentValueGuid"></param>
+    ''' <param name="AttachedTo"></param>
+    ''' <param name="Recursive">Recursive functionality disabled until finished.</param>
+    Public Sub New(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean)
+        _Recursive = Recursive
+        _Parent = Parent
+        _isChild = True
+        _ParentValueGuid = ParentValueGuid
+        _Depth = Parent.Depth + 1
+        Parent.ChildWatcherValues.Add(ParentValueGuid)
+        Parent.ChildWatcherGuids.Add(Guid)
+        Initialize(AttachedTo)
+        isEnabled = Parent.isEnabled
+    End Sub
+
+    Private Sub Initialize(AttachedTo As Object, Optional Name As String = "")
+        _Name = If(Name = "", AttachedTo.GetType().ToString(), Name)
+        _AttachedObject = AttachedTo
+        Wrapper.ReflectionFlags = BindingFlags.Instance Or BindingFlags.[Public] Or BindingFlags.NonPublic
+
+        _Fields = Wrapper.GetFieldReferences(AttachedObject.GetType()).ToArray()
+        _Properties = Wrapper.GetPropertyReferences(AttachedObject.GetType()).ToArray()
+
+        ValueCount = If(Fields IsNot Nothing, _Fields.Count, 0) + If(Properties IsNot Nothing, _Properties.Count, 0)
+        If NotNothing(Parent) Then
+            isEnabled = Parent.isEnabled
+        End If
+        DebugWatcher.Watchers.Add(Guid, Me)
+
+    End Sub
+
+    Public Shared Function CreateChild(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean) As DebugWatcher
+        If Parent IsNot Nothing AndAlso Not Parent.ChildWatcherValues.Contains(ParentValueGuid) Then
+            If Parent.Depth >= MaxRecursionDepth Then Return Nothing
+            Dim w As New DebugWatcher(Parent, ParentValueGuid, AttachedTo, Recursive)
+            Return w
+        End If
+        Return Nothing
+    End Function
+
+    Private Sub DisposeWorkers()
+        If _workerCts IsNot Nothing Then
+            _workerCts.Cancel()
+            _workerCts.Dispose()
+            _workerCts = Nothing
+        End If
+        Workers.Clear()
+    End Sub
+
+    Private Sub CreateWorkers()
+        DisposeWorkers()
+        _workerCts = New CancellationTokenSource()
+        Dim token As CancellationToken = _workerCts.Token
+
+        For i As Integer = 0 To Fields.Length - 1
+            Dim f As FieldReference = Fields(i)
+            If Not DebugValue.IgnoreTypes.Contains(f.Info.FieldType) Then
+                Workers.Add(Task.Run(Function() WorkerCalculateAsync(f, token)))
+            End If
+        Next
+
+        For i As Integer = 0 To Properties.Count - 1
+            Dim p As PropertyReference = Properties(i)
+            If Not DebugValue.IgnoreTypes.Contains(p.Info.PropertyType) Then
+                Workers.Add(Task.Run(Function() WorkerCalculateAsync(p, token)))
+            End If
+        Next
+    End Sub
+
+#End Region
+
+#Region "Background Workers"
+
+    Private Workers As New List(Of Task)
+    Private _workerCts As CancellationTokenSource
+
+    Private Shared Function IsThreadSafeType(t As Type) As Boolean
+        Return Not GetType(System.Windows.Threading.DispatcherObject).IsAssignableFrom(t)
+    End Function
+
+    Private Async Function WorkerCalculateAsync(state As Object, token As CancellationToken) As Task
+        Dim memberType As Type = If(TypeOf state Is FieldReference,
+            DirectCast(state, FieldReference).Info.FieldType,
+            DirectCast(state, PropertyReference).Info.PropertyType)
+        If Not IsThreadSafeType(memberType) Then Return
+
+        Do While isEnabled AndAlso Not token.IsCancellationRequested
+            Dim StartTime As DateTime = DateTime.UtcNow
+            Dim v As DebugValue = Nothing
+
+            Try
+                If TypeOf state Is FieldReference Then
+                    v = CurrentFieldValue(DirectCast(state, FieldReference))
+                Else
+                    v = CurrentPropertyValue(DirectCast(state, PropertyReference))
+                End If
+            Catch
+            End Try
+
+            Dim ResultInterval As TimeSpan = TimeSpan.Zero
+            Dim ms As Double = 0
+            Dim value As DebugValue = Nothing
+            Dim valueChanged As Boolean = False
+
+            If NotNothing(v) AndAlso v.Guid IsNot Nothing Then
+                SyncLock (ValueTimeline.Timelines)
+                    value = v.Clone()
+                    If Not ValueTimeline.Timelines.ContainsKey(value.Guid) Then
+                        ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
+                    Else
+                        ValueTimeline.Timelines(value.Guid).AddValue(value)
+                    End If
+                    ResultInterval = DateTime.UtcNow - StartTime
+                    ms = ResultInterval.TotalMilliseconds
+                    value.CalculationTime = ResultInterval
+                    valueChanged = value.ValueChanged
+                End SyncLock
+
+                OnValueCalculated(Me, value)
+                If valueChanged Then OnChangedValue(Me, value)
+            End If
+
+            Try
+                If ms < IntervalMilliseconds Then
+                    Dim diff As Double = Math.Min(Math.Max(0, Interval.TotalMilliseconds - ResultInterval.TotalMilliseconds), Interval.TotalMilliseconds)
+                    If diff > 0 Then Await Task.Delay(TimeSpan.FromMilliseconds(diff), token)
+                Else
+                    Await Task.Delay(MinimumInterval, token)
+                End If
+            Catch ex As OperationCanceledException
+                Exit Do
+            End Try
+        Loop
+    End Function
+
+#End Region
+
+#Region "General Logic"
+
+    Public Sub StartSession()
+        If Not isEnabled Then isEnabled = True
+    End Sub
+
+    Public Sub EndSession()
+        If isEnabled Then isEnabled = False
+    End Sub
+
+#End Region
+
+    Public Function CurrentFieldValue(f As FieldReference) As DebugValue
+        SyncLock (ValueTimeline.Timelines)
+            If FieldValues.ContainsKey(f.Index) Then
+                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject, .Watcher = Me}
+                Return FieldValues(f.Index).UpdateValue(StateObject)
+            Else
+                Dim newValue As DebugValue = DebugValue.NewFieldValue(Me, f, AttachedObject, IsRecursive).SetValueChanged(True)
+                FieldValues.Add(f.Index, newValue)
+                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
+                Return newValue
+            End If
+        End SyncLock
+    End Function
+
+    Public Function CurrentPropertyValue(p As PropertyReference) As DebugValue
+        SyncLock (ValueTimeline.Timelines)
+            If PropertyValues.ContainsKey(p.Index) Then
+                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject, .Watcher = Me}
+                Return PropertyValues(p.Index).UpdateValue(StateObject)
+            Else
+                Dim newValue As DebugValue = DebugValue.NewPropertyValue(Me, p, AttachedObject, IsRecursive).SetValueChanged(True)
+                PropertyValues.Add(p.Index, newValue)
+                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
+                Return newValue
+            End If
+        End SyncLock
+    End Function
+
+End Class

@@ -3,7 +3,7 @@ Imports System.Threading
 Imports System.Windows
 Imports JackDebug.WPF.Collections
 Imports JackDebug.WPF.States
-Imports MicroSerializationLibrary.Serialization
+Imports SocketJack.Serialization
 
 Namespace Values
     Public Class DebugValue
@@ -240,6 +240,11 @@ Namespace Values
                 IgnoreTypes.Add(t)
             End If
             Dim Out As New DebugValue(FieldReference.Info.Name, FieldReference, Nothing, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
+            If Flags.isDictionary AndAlso CurrentValue IsNot Nothing Then
+                Dim dict As IDictionary = DirectCast(CurrentValue, IDictionary)
+                Out.KeyList = New ArrayList(dict.Keys)
+                Out.ValueList = New ArrayList(dict.Values)
+            End If
             If Not Flags.isSystem AndAlso Not Flags.isNothing Then
                 ''' Child Watcher creation for types with fields/properties.
                 DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
@@ -272,6 +277,11 @@ Namespace Values
                 IgnoreTypes.Add(t)
             End If
             Dim Out As New DebugValue(PropertyReference.Info.Name, Nothing, PropertyReference, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
+            If Flags.isDictionary AndAlso CurrentValue IsNot Nothing Then
+                Dim dict As IDictionary = DirectCast(CurrentValue, IDictionary)
+                Out.KeyList = New ArrayList(dict.Keys)
+                Out.ValueList = New ArrayList(dict.Values)
+            End If
             If Not Flags.isSystem AndAlso Not Flags.isNothing Then
                 ''' Child Watcher creation for types with fields/properties.
                 DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
@@ -330,6 +340,17 @@ Namespace Values
             End If
 
             Flags.isNumeric = IsNumeric(SafeValue.Value) Or Flags.isBoolean
+            If Not SafeValue.IsNothing Then
+                Flags.isDrawingPoint = (t Is GetType(System.Drawing.Point))
+                Flags.isWindowsPoint = (t Is GetType(System.Windows.Point))
+                Flags.isDrawingRectangle = (t Is GetType(System.Drawing.Rectangle))
+                Flags.isShapesRect = (t Is GetType(System.Windows.Shapes.Rectangle))
+                Flags.isWindowsRect = (t Is GetType(System.Windows.Rect))
+                Flags.isString = (t Is GetType(String)) AndAlso Not Flags.isNumeric
+                Flags.isVector = (t Is GetType(System.Windows.Vector))
+                Flags.isDrawingSize = (t Is GetType(System.Drawing.Size))
+                Flags.isWindowsSize = (t Is GetType(System.Windows.Size))
+            End If
             Return Flags
         End Function
 
@@ -340,15 +361,15 @@ Namespace Values
         Public Function UpdateValue(WorkerState As ValueWorkerState) As DebugValue
             Dim SafeValue As New SafeValue(Nothing)
 
-            If IsField AndAlso Flags.isSystem Then
+            If IsField AndAlso (Flags.isSystem OrElse Type.IsValueType) Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.GetValue(WorkerState.Instance))
                 _FieldReference = WorkerState.Reference
                 _IsField = True
-            ElseIf IsProperty AndAlso Flags.isSystem Then
+            ElseIf IsProperty AndAlso (Flags.isSystem OrElse Type.IsValueType) Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.GetValue(WorkerState.Instance))
                 _PropertyReference = WorkerState.Reference
                 _IsProperty = True
-            ElseIf IsField AndAlso Not Flags.isSystem Then
+            ElseIf IsField AndAlso Not Flags.isSystem AndAlso Not Type.IsValueType Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.FieldType.Name & "*")
                 _FieldReference = WorkerState.Reference
                 _IsField = True
@@ -359,7 +380,7 @@ Namespace Values
                         Flags.isChild = True
                     End If
                 End If
-            ElseIf IsProperty AndAlso Not Flags.isSystem Then
+            ElseIf IsProperty AndAlso Not Flags.isSystem AndAlso Not Type.IsValueType Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.PropertyType.Name & "*")
                 _PropertyReference = WorkerState.Reference
                 _IsProperty = True
@@ -396,6 +417,13 @@ Namespace Values
 
             _LastValue = Value
             _Value = CurrentValue
+
+            If Flags.isDictionary AndAlso CurrentValue IsNot Nothing Then
+                Dim dict As IDictionary = DirectCast(CurrentValue, IDictionary)
+                _KeyList = New ArrayList(dict.Keys)
+                _ValueList = New ArrayList(dict.Values)
+            End If
+
             Return SetValueChanged(ValueChanged)
         End Function
 

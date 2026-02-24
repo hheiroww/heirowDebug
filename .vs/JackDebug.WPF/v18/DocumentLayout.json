@@ -3,20 +3,32 @@
   "WorkspaceRootPath": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\debugwindow.xaml.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
-      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:debugwindow.xaml.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\debugwatcher.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
       "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:debugwatcher.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\helpers\\utils.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
+      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:helpers\\utils.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\debugwindow.xaml.vb||{8B382828-6202-11D1-8870-0000F87579D2}|",
+      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:debugwindow.xaml.vb||{8B382828-6202-11D1-8870-0000F87579D2}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\collections\\debugvaluecollection.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
+      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:collections\\debugvaluecollection.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\jackdebug.wpf.vbproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|",
       "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:jackdebug.wpf.vbproj||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\collections\\valuetimeline.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
-      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:collections\\valuetimeline.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
+      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\jackdebug.wpf.vbproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:jackdebug.wpf.vbproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|c:\\users\\patho\\source\\repos\\jackoffates\\jack-debug\\debugwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{D4B4C272-77B0-045A-7D27-A164A71F19A4}|JackDebug.WPF.vbproj|solutionrelative:debugwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     }
   ],
   "DocumentGroupContainers": [
@@ -26,46 +38,38 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 8,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "DebugWindow.xaml.vb",
-              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml.vb",
-              "RelativeDocumentMoniker": "DebugWindow.xaml.vb",
-              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml.vb",
-              "RelativeToolTip": "DebugWindow.xaml.vb",
-              "ViewState": "AgIAAC8CAAAAAAAAAAAAADYCAAAqAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
-              "WhenOpened": "2026-02-24T01:11:12.209Z",
+              "DocumentIndex": 5,
+              "Title": "JackDebug.WPF.vbproj",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
+              "RelativeDocumentMoniker": "JackDebug.WPF.vbproj",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
+              "RelativeToolTip": "JackDebug.WPF.vbproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAArAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003380|",
+              "WhenOpened": "2026-02-24T03:41:47.653Z",
+              "IsPinned": true,
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "ValueTimeline.vb",
-              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Collections\\ValueTimeline.vb",
-              "RelativeDocumentMoniker": "Collections\\ValueTimeline.vb",
-              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Collections\\ValueTimeline.vb",
-              "RelativeToolTip": "Collections\\ValueTimeline.vb",
-              "ViewState": "AgIAAF4AAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
-              "WhenOpened": "2026-02-24T01:11:05.154Z",
+              "DocumentIndex": 4,
+              "Title": "JackDebug.WPF",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
+              "RelativeDocumentMoniker": "JackDebug.WPF.vbproj",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
+              "RelativeToolTip": "JackDebug.WPF.vbproj",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003380|",
+              "WhenOpened": "2026-02-24T03:42:19.288Z",
+              "IsPinned": true,
               "EditorCaption": ""
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "DebugWatcher.vb",
-              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWatcher.vb",
-              "RelativeDocumentMoniker": "DebugWatcher.vb",
-              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWatcher.vb",
-              "RelativeToolTip": "DebugWatcher.vb",
-              "ViewState": "AgIAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
-              "WhenOpened": "2026-02-24T01:01:53.046Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
             },
             {
               "$type": "Bookmark",
@@ -73,14 +77,66 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "DebugValueCollection.vb",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Collections\\DebugValueCollection.vb",
+              "RelativeDocumentMoniker": "Collections\\DebugValueCollection.vb",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Collections\\DebugValueCollection.vb",
+              "RelativeToolTip": "Collections\\DebugValueCollection.vb",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAqwEUAAAAvAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2026-02-24T04:31:41.864Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Utils.vb",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Helpers\\Utils.vb",
+              "RelativeDocumentMoniker": "Helpers\\Utils.vb",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\Helpers\\Utils.vb",
+              "RelativeToolTip": "Helpers\\Utils.vb",
+              "ViewState": "AgIAAAIAAAAAAAAAAAAAAAcAAAAgAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2026-02-24T04:14:22.469Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "DebugWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml",
+              "RelativeDocumentMoniker": "DebugWindow.xaml",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml",
+              "RelativeToolTip": "DebugWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-02-24T04:09:08.751Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "JackDebug.WPF",
-              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
-              "RelativeDocumentMoniker": "JackDebug.WPF.vbproj",
-              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\JackDebug.WPF.vbproj",
-              "RelativeToolTip": "JackDebug.WPF.vbproj",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003380|",
-              "WhenOpened": "2026-02-24T01:00:50.216Z",
+              "Title": "DebugWindow.xaml.vb",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml.vb",
+              "RelativeDocumentMoniker": "DebugWindow.xaml.vb",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWindow.xaml.vb",
+              "RelativeToolTip": "DebugWindow.xaml.vb",
+              "ViewState": "AgIAAIkCAAAAAAAAAAAAAIkCAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2026-02-24T04:09:07.536Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "DebugWatcher.vb",
+              "DocumentMoniker": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWatcher.vb",
+              "RelativeDocumentMoniker": "DebugWatcher.vb",
+              "ToolTip": "C:\\Users\\Patho\\source\\repos\\JackOfFates\\Jack-Debug\\DebugWatcher.vb",
+              "RelativeToolTip": "DebugWatcher.vb",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2026-02-24T04:09:02.567Z",
               "EditorCaption": ""
             }
           ]

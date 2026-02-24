@@ -2,27 +2,26 @@
 
   <PropertyGroup>
     <RootNamespace>JackDebug</RootNamespace>
-    <TargetFrameworks>
-		net9.0-windows10.0.26100.0;net9.0-windows10.0.22621.0;net9.0-windows10.0.20348.0;net9.0-windows10.0.19041.0;net9.0-windows10.0.18362.0;net9.0-windows10.0.17763.0;net8.0-windows10.0.26100.0;net8.0-windows10.0.22621.0;net8.0-windows10.0.20348.0;net8.0-windows10.0.19041.0;net8.0-windows10.0.18362.0;net8.0-windows10.0.17763.0;net7.0-windows10.0.26100.0;net7.0-windows10.0.22621.0;net7.0-windows10.0.20348.0;net7.0-windows10.0.19041.0;net7.0-windows10.0.18362.0;net7.0-windows10.0.17763.0;net6.0-windows10.0.26100.0;net6.0-windows10.0.22621.0;net6.0-windows10.0.20348.0;net6.0-windows10.0.19041.0;net6.0-windows10.0.18362.0;net6.0-windows10.0.17763.0;net6.0-windows8.0;net6.0-windows7.0;net7.0-windows8.0;net7.0-windows7.0;net8.0-windows8.0;net8.0-windows7.0;net9.0-windows8.0;net9.0-windows7.0;
-	</TargetFrameworks>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>JackDebug.WPF</RootNamespace>
     <UseWPF>true</UseWPF>
     <ImportedNamespaces>System.Drawing=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,JackDebug=True</ImportedNamespaces>
-    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
     <Title>Jack Debug (WPF)</Title>
     <Company>JackOfFates</Company>
     <Description>Debug your WPF application easily with JackDebug.</Description>
     <PackageProjectUrl>https://JackOfAllFates.com/</PackageProjectUrl>
-    <PackageIcon>Dark_noBG_face_256.png</PackageIcon>
+    <PackageIcon>JackDebug(1).png</PackageIcon>
     <PackageReleaseNotes>Added recursive functionality.</PackageReleaseNotes>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © JackOfFates 2024</Copyright>
-    <Version>1.1.2.0</Version>
-    <PackageLicenseFile>License.txt</PackageLicenseFile>
-    <PackageReadmeFile>JackDebug_README.md</PackageReadmeFile>
+    <Version>1.4.0.0</Version>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/JackOfFates/Jack-Debug</RepositoryUrl>
+	  <IsPackable>True</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,13 +29,28 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MahApps.Metro" Version="2.4.10" />
-    <PackageReference Include="MicroSerializationLibrary" Version="1.1.2.22" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="MahApps.Metro" Version="2.4.11" />
+    <PackageReference Include="SocketJack.WPF" Version="1.4.5" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
   </ItemGroup>
 	
   <ItemGroup>
     <Import Include="System.Drawing" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <None Include="..\..\..\..\Downloads\JackDebug(1).png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\..\..\Downloads\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\SocketJack\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 	
   <ItemGroup>

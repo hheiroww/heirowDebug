@@ -1,4 +1,5 @@
 ﻿Imports System.Collections.ObjectModel
+Imports System.Collections
 Imports System.ComponentModel
 Imports System.Diagnostics.Eventing.Reader
 Imports System.Net.Security
@@ -16,8 +17,9 @@ Imports ControlzEx.Theming
 Imports JackDebug.WPF.Collections
 Imports JackDebug.WPF.Values
 Imports MahApps.Metro.Controls
-Imports MicroSerializationLibrary
-Imports MicroSerializationLibrary.Serialization
+Imports SocketJack
+Imports SocketJack.Serialization
+Imports System.Linq
 
 Public Class DebugWindow
     Inherits MetroWindow
@@ -48,6 +50,7 @@ Public Class DebugWindow
     Private Sub DebugWindow_Loaded(sender As Object, e As RoutedEventArgs) Handles Me.Loaded
         _PlotWidth = Plot.ActualWidth
         _PlotHeight = Plot.ActualHeight
+
         Enabled = True
     End Sub
 
@@ -61,6 +64,20 @@ Public Class DebugWindow
                 tag = TryCast(parentItem.Tag, String)
                 parentItem = TryCast(parentItem.Parent, TreeViewItem)
             End While
+
+            If tag IsNot Nothing AndAlso ValueOwnerLookup.ContainsKey(tag) Then
+                Dim info = ValueOwnerLookup(tag)
+                Dim val = info.Item1
+                Dim watcher = info.Item2
+                If val.Type IsNot Nothing AndAlso Not val.Type.IsValueType AndAlso Not val.Flags.isString AndAlso Not watcher.ChildWatcherValues.Contains(tag) Then
+                    _selectedValueGuid = tag
+                    ShowAddWatchButton()
+                    Return
+                End If
+            End If
+
+            _selectedValueGuid = Nothing
+            HideAddWatchButton()
             SetTimeline(tag)
         End If
     End Sub
@@ -156,13 +173,22 @@ Public Class DebugWindow
     Private WithEvents CurrentTimeline As ValueTimeline
     Public ConcurrentIterations As New List(Of String)
     Private InitializedWatchers As New Dictionary(Of String, DebugWatcher)
+    Private ValueOwnerLookup As New Dictionary(Of String, Tuple(Of DebugValue, DebugWatcher))
+    Private _selectedValueGuid As String
 
 #End Region
 
 #Region "Drawing"
 
     Public Sub ClearPoints()
-        InvokeUI(Sub() Points.Clear())
+        InvokeUI(Sub()
+                     Points.Clear()
+                     SpatialCanvas.Children.Clear()
+                     SpatialAxisLeft.Children.Clear()
+                     SpatialAxisBottom.Children.Clear()
+                     StringValueTextBox.Visibility = Visibility.Collapsed
+                     StringValueTextBox.Text = ""
+                 End Sub)
         DrawIndex = 0
         _PlotWidth = Plot.ActualWidth
         _PlotHeight = Plot.ActualHeight
@@ -201,44 +227,291 @@ Public Class DebugWindow
 
         Dim splice As ValueTimelineSplice = CurrentTimeline.GetValuesWithin(Lower, Upper)
         If splice.isGraphable Then
-            If CurrentTimeline.HighestValue Is Nothing Then Return
-            If CurrentTimeline.LowestValue Is Nothing Then Return
+            Dim Flags As TypeFlags = splice.Values.First().Flags
+            Dim isSpatialType As Boolean = Flags.isDrawingPoint OrElse Flags.isWindowsPoint OrElse Flags.isDrawingRectangle OrElse Flags.isShapesRect OrElse Flags.isWindowsRect OrElse Flags.isVector OrElse Flags.isDrawingSize OrElse Flags.isWindowsSize
+            If Not isSpatialType Then
+                If CurrentTimeline.HighestValue Is Nothing Then Return
+                If CurrentTimeline.LowestValue Is Nothing Then Return
+            End If
+            If isSpatialType Then
+                InvokeUI(
+                    Sub()
+                        p.Visibility = Visibility.Collapsed
+                        StringValueTextBox.Visibility = Visibility.Collapsed
+                        SpatialCanvas.Visibility = Visibility.Visible
+                        SpatialAxisLeft.Visibility = Visibility.Visible
+                        SpatialAxisBottom.Visibility = Visibility.Visible
+                        InvertSpatialCheckBox.Visibility = Visibility.Visible
+                        Dim invertY As Boolean = InvertSpatialCheckBox.IsChecked = True
+                        If SpatialCanvas.Children.Count > 0 Then SpatialCanvas.Children.Clear()
+                        If SpatialAxisLeft.Children.Count > 0 Then SpatialAxisLeft.Children.Clear()
+                        If SpatialAxisBottom.Children.Count > 0 Then SpatialAxisBottom.Children.Clear()
+                        Dim circleSize As Double = 10
+                        ' Compute viewport bounds from visible splice values to keep last point in view
+                        Dim leftVal As Double = Double.MaxValue
+                        Dim rightVal As Double = Double.MinValue
+                        Dim topVal As Double = Double.MaxValue
+                        Dim bottomVal As Double = Double.MinValue
+                        For Each sv As DebugValue In splice.Values
+                            Dim svFlags As TypeFlags = sv.Flags
+                            Dim sx As Double = 0
+                            Dim sy As Double = 0
+                            Dim sw As Double = 0
+                            Dim sh As Double = 0
+                            If svFlags.isDrawingPoint Then
+                                Dim sPt As System.Drawing.Point = DirectCast(sv.Value, System.Drawing.Point)
+                                sx = sPt.X : sy = sPt.Y
+                            ElseIf svFlags.isWindowsPoint Then
+                                Dim sPt As System.Windows.Point = DirectCast(sv.Value, System.Windows.Point)
+                                sx = sPt.X : sy = sPt.Y
+                            ElseIf svFlags.isVector Then
+                                Dim sVec As System.Windows.Vector = DirectCast(sv.Value, System.Windows.Vector)
+                                sx = sVec.X : sy = sVec.Y
+                            ElseIf svFlags.isDrawingRectangle Then
+                                Dim sRect As System.Drawing.Rectangle = DirectCast(sv.Value, System.Drawing.Rectangle)
+                                sx = sRect.X : sy = sRect.Y : sw = sRect.Width : sh = sRect.Height
+                            ElseIf svFlags.isShapesRect Then
+                                Dim sRect As System.Windows.Shapes.Rectangle = DirectCast(sv.Value, System.Windows.Shapes.Rectangle)
+                                sx = sRect.Margin.Left : sy = sRect.Margin.Top
+                                sw = If(Double.IsNaN(sRect.Width), 0, sRect.Width)
+                                sh = If(Double.IsNaN(sRect.Height), 0, sRect.Height)
+                            ElseIf svFlags.isWindowsRect Then
+                                Dim sRect As System.Windows.Rect = DirectCast(sv.Value, System.Windows.Rect)
+                                sx = sRect.X : sy = sRect.Y : sw = sRect.Width : sh = sRect.Height
+                            ElseIf svFlags.isDrawingSize Then
+                                Dim sSize As System.Drawing.Size = DirectCast(sv.Value, System.Drawing.Size)
+                                sx = 0 : sy = 0 : sw = sSize.Width : sh = sSize.Height
+                            ElseIf svFlags.isWindowsSize Then
+                                Dim sSize As System.Windows.Size = DirectCast(sv.Value, System.Windows.Size)
+                                sx = 0 : sy = 0 : sw = sSize.Width : sh = sSize.Height
+                            End If
+                            If sx < leftVal Then leftVal = sx
+                            If sx + sw > rightVal Then rightVal = sx + sw
+                            If sx > rightVal Then rightVal = sx
+                            If sy < topVal Then topVal = sy
+                            If sy + sh > bottomVal Then bottomVal = sy + sh
+                            If sy > bottomVal Then bottomVal = sy
+                        Next
+                        If leftVal = Double.MaxValue Then leftVal = 0
+                        If rightVal = Double.MinValue Then rightVal = 0
+                        If topVal = Double.MaxValue Then topVal = 0
+                        If bottomVal = Double.MinValue Then bottomVal = 0
+                        If rightVal = leftVal Then rightVal = leftVal + 1
+                        If bottomVal = topVal Then bottomVal = topVal + 1
+                        Dim padX As Double = (rightVal - leftVal) * 0.1
+                        Dim padY As Double = (bottomVal - topVal) * 0.1
+                        leftVal -= padX
+                        rightVal += padX
+                        topVal -= padY
+                        bottomVal += padY
+
+                        ' Draw static background grid with dark red lines ~20px apart
+                        Dim gridSpacing As Double = 20
+                        Dim gridBrush As New SolidColorBrush(Color.FromArgb(255, 80, 10, 10))
+                        Dim x As Double = 0
+                        While x <= PlotWidth
+                            Dim gridLine As New Line()
+                            gridLine.X1 = x : gridLine.Y1 = 0
+                            gridLine.X2 = x : gridLine.Y2 = PlotHeight
+                            gridLine.Stroke = gridBrush : gridLine.StrokeThickness = 1
+                            SpatialCanvas.Children.Add(gridLine)
+                            x += gridSpacing
+                        End While
+                        Dim y As Double = 0
+                        While y <= PlotHeight
+                            Dim gridLine As New Line()
+                            gridLine.X1 = 0 : gridLine.Y1 = y
+                            gridLine.X2 = PlotWidth : gridLine.Y2 = y
+                            gridLine.Stroke = gridBrush : gridLine.StrokeThickness = 1
+                            SpatialCanvas.Children.Add(gridLine)
+                            y += gridSpacing
+                        End While
+
+                        ' Draw axis labels on left side (Y axis)
+                        Dim axisFontSize As Double = 9
+                        Dim axisForeground As New SolidColorBrush(Colors.WhiteSmoke)
+                        Dim leftAxisWidth As Double = SpatialAxisLeft.ActualWidth
+                        Dim labelCount As Integer = CInt(Math.Floor(PlotHeight / gridSpacing))
+                        If labelCount < 2 Then labelCount = 2
+                        For li As Integer = 0 To labelCount
+                            Dim frac As Double = CDbl(li) / CDbl(labelCount)
+                            Dim labelY As Double = PlotHeight - (frac * PlotHeight)
+                            Dim axisValue As Double = If(invertY, Interpolate(frac, 0, 1, bottomVal, topVal), Interpolate(frac, 0, 1, topVal, bottomVal))
+                            Dim tb As New TextBlock()
+                            tb.Text = axisValue.ToString("F1")
+                            tb.Foreground = axisForeground
+                            tb.FontSize = axisFontSize
+                            Canvas.SetRight(tb, 2)
+                            Canvas.SetTop(tb, labelY - 7)
+                            SpatialAxisLeft.Children.Add(tb)
+                        Next
+
+                        ' Draw axis labels on bottom side (X axis: left=min, right=max)
+                        Dim bottomLabelCount As Integer = CInt(Math.Floor(PlotWidth / (gridSpacing * 3)))
+                        If bottomLabelCount < 2 Then bottomLabelCount = 2
+                        For li As Integer = 0 To bottomLabelCount
+                            Dim frac As Double = CDbl(li) / CDbl(bottomLabelCount)
+                            Dim labelX As Double = frac * PlotWidth
+                            Dim axisValue As Double = Interpolate(frac, 0, 1, leftVal, rightVal)
+                            Dim tb As New TextBlock()
+                            tb.Text = axisValue.ToString("F1")
+                            tb.Foreground = axisForeground
+                            tb.FontSize = axisFontSize
+                            Canvas.SetLeft(tb, labelX - 10)
+                            Canvas.SetTop(tb, 2)
+                            SpatialAxisBottom.Children.Add(tb)
+                        Next
+
+                        ' Draw data points as circles, or rect/size types as rectangles
+                        Dim totalPoints As Integer = splice.Values.Count - 1
+                        If totalPoints < 0 Then totalPoints = 0
+                        For i As Integer = 0 To splice.Values.Count - 1
+                            Dim v As DebugValue = splice.Values(i)
+                            Dim vFlags As TypeFlags = v.Flags
+                            Dim isRectType As Boolean = (vFlags.isDrawingRectangle OrElse vFlags.isShapesRect OrElse vFlags.isWindowsRect OrElse vFlags.isDrawingSize OrElse vFlags.isWindowsSize) AndAlso Not vFlags.isDrawingPoint AndAlso Not vFlags.isWindowsPoint AndAlso Not vFlags.isVector
+                            Dim xVal As Double = 0
+                            Dim yVal As Double = 0
+                            Dim wVal As Double = 0
+                            Dim hVal As Double = 0
+                            If vFlags.isDrawingPoint Then
+                                Dim Pt As System.Drawing.Point = DirectCast(v.Value, System.Drawing.Point)
+                                xVal = Pt.X : yVal = Pt.Y
+                            ElseIf vFlags.isWindowsPoint Then
+                                Dim Pt As System.Windows.Point = DirectCast(v.Value, System.Windows.Point)
+                                xVal = Pt.X : yVal = Pt.Y
+                            ElseIf vFlags.isVector Then
+                                Dim Vec As System.Windows.Vector = DirectCast(v.Value, System.Windows.Vector)
+                                xVal = Vec.X : yVal = Vec.Y
+                            ElseIf vFlags.isDrawingRectangle Then
+                                Dim dRect As System.Drawing.Rectangle = DirectCast(v.Value, System.Drawing.Rectangle)
+                                xVal = dRect.X : yVal = dRect.Y : wVal = dRect.Width : hVal = dRect.Height
+                            ElseIf vFlags.isShapesRect Then
+                                Dim sRect As System.Windows.Shapes.Rectangle = DirectCast(v.Value, System.Windows.Shapes.Rectangle)
+                                xVal = sRect.Margin.Left : yVal = sRect.Margin.Top
+                                wVal = If(Double.IsNaN(sRect.Width), 0, sRect.Width)
+                                hVal = If(Double.IsNaN(sRect.Height), 0, sRect.Height)
+                            ElseIf vFlags.isWindowsRect Then
+                                Dim wRect As System.Windows.Rect = DirectCast(v.Value, System.Windows.Rect)
+                                xVal = wRect.X : yVal = wRect.Y : wVal = wRect.Width : hVal = wRect.Height
+                            ElseIf vFlags.isDrawingSize Then
+                                Dim dSize As System.Drawing.Size = DirectCast(v.Value, System.Drawing.Size)
+                                xVal = 0 : yVal = 0 : wVal = dSize.Width : hVal = dSize.Height
+                            ElseIf vFlags.isWindowsSize Then
+                                Dim wSize As System.Windows.Size = DirectCast(v.Value, System.Windows.Size)
+                                xVal = 0 : yVal = 0 : wVal = wSize.Width : hVal = wSize.Height
+                            End If
+                            Dim mappedX As Double = Interpolate(xVal, leftVal, rightVal, 0, PlotWidth)
+                            Dim mappedY As Double = If(invertY, Interpolate(yVal, topVal, bottomVal, 0, PlotHeight), PlotHeight - Interpolate(yVal, topVal, bottomVal, 0, PlotHeight))
+
+                            ' Color: older = light blue, newest = solid purple, interpolated between
+                            Dim t As Double = If(totalPoints > 0, CDbl(i) / CDbl(totalPoints), 1.0)
+                            Dim r As Byte = CByte(Math.Round(Interpolate(t, 0, 1, 100, 128)))
+                            Dim g As Byte = CByte(Math.Round(Interpolate(t, 0, 1, 180, 0)))
+                            Dim b As Byte = CByte(Math.Round(Interpolate(t, 0, 1, 255, 255)))
+                            Dim colorBrush As New SolidColorBrush(Color.FromArgb(255, r, g, b))
+
+                            If isRectType Then
+                                Dim mappedX2 As Double = Interpolate(xVal + wVal, leftVal, rightVal, 0, PlotWidth)
+                                Dim mappedY2 As Double = If(invertY, Interpolate(yVal + hVal, topVal, bottomVal, 0, PlotHeight), PlotHeight - Interpolate(yVal + hVal, topVal, bottomVal, 0, PlotHeight))
+                                Dim rectLeft As Double = Math.Min(mappedX, mappedX2)
+                                Dim rectTop As Double = Math.Min(mappedY, mappedY2)
+                                Dim rectWidth As Double = Math.Max(Math.Abs(mappedX2 - mappedX), 1)
+                                Dim rectHeight As Double = Math.Max(Math.Abs(mappedY2 - mappedY), 1)
+                                Dim rect As New System.Windows.Shapes.Rectangle()
+                                rect.Width = rectWidth
+                                rect.Height = rectHeight
+                                rect.Stroke = colorBrush
+                                rect.StrokeThickness = 2
+                                rect.Fill = New SolidColorBrush(Color.FromArgb(40, r, g, b))
+                                Canvas.SetLeft(rect, rectLeft)
+                                Canvas.SetTop(rect, rectTop)
+                                SpatialCanvas.Children.Add(rect)
+                            Else
+                                Dim circle As New Ellipse()
+                                circle.Width = circleSize : circle.Height = circleSize
+                                circle.Fill = colorBrush
+                                Canvas.SetLeft(circle, mappedX - circleSize / 2)
+                                Canvas.SetTop(circle, mappedY - circleSize / 2)
+                                SpatialCanvas.Children.Add(circle)
+                            End If
+                        Next
+                        LowLabel.Text = "X: " & leftVal.ToString("F1") & ", Y: " & topVal.ToString("F1")
+                        HighLabel.Text = "X: " & rightVal.ToString("F1") & ", Y: " & bottomVal.ToString("F1")
+                    End Sub)
+                Return
+            End If
+            If Flags.isString Then
+                Dim sb As New System.Text.StringBuilder()
+                For i As Integer = 0 To splice.Values.Count - 1
+                    Dim v As DebugValue = splice.Values(i)
+                    Dim s As String = If(v.Value IsNot Nothing, CStr(v.Value), "NULL")
+                    sb.AppendLine("[" & (Lower + i) & "] " & s)
+                Next
+                Dim text As String = sb.ToString()
+                InvokeUI(
+                    Sub()
+                        Points.Clear()
+                        SpatialCanvas.Visibility = Visibility.Collapsed
+                        SpatialAxisLeft.Visibility = Visibility.Collapsed
+                        SpatialAxisBottom.Visibility = Visibility.Collapsed
+                        InvertSpatialCheckBox.Visibility = Visibility.Collapsed
+                        p.Visibility = Visibility.Collapsed
+                        LowLabel.Visibility = Visibility.Collapsed
+                        HighLabel.Visibility = Visibility.Collapsed
+                        StringValueTextBox.Visibility = Visibility.Visible
+                        StringValueTextBox.Text = text
+                        StringValueTextBox.ScrollToEnd()
+                    End Sub)
+                Return
+            End If
+            Dim newPoints As New List(Of Point)
+            Dim l As Integer = splice.Values.Count - 1
+            Dim pointWidth As Double = PlotWidth / If(l > 0, l, 1)
+            Dim localDrawIndex As Double = 0
+
+            newPoints.Add(New Point(localDrawIndex, PlotHeight))
+            newPoints.Add(New Point(localDrawIndex, 0))
+            newPoints.Add(New Point(localDrawIndex, PlotHeight))
+            For i As Integer = 0 To splice.Values.Count - 1
+                Dim v As DebugValue = splice.Values(i)
+                Dim InterpolatedValue As Double
+
+                If Flags.isBoolean Then
+                    If v.Value Then
+                        InterpolatedValue = PlotHeight
+                    Else
+                        InterpolatedValue = 0
+                    End If
+                ElseIf Flags.isNumeric Then
+                    If Not CurrentTimeline.HighestValue.GetType() Is GetType(Char) Then
+                        InterpolatedValue = Interpolate(v.Value, CurrentTimeline.LowestValue, CurrentTimeline.HighestValue, 0, PlotHeight)
+                    End If
+                End If
+
+                newPoints.Add(New Point(localDrawIndex, PlotHeight - InterpolatedValue))
+                newPoints.Add(New Point(localDrawIndex + pointWidth, PlotHeight - InterpolatedValue))
+
+                localDrawIndex += pointWidth
+            Next
+
+            newPoints.Add(New Point(localDrawIndex, PlotHeight))
+
             InvokeUI(
                 Sub()
-                    ClearPoints()
-                    Dim l As Integer = splice.Values.Length - 1
-                    Dim pointWidth As Double = PlotWidth / l
+                    Points.Clear()
+                    SpatialCanvas.Visibility = Visibility.Collapsed
+                    SpatialAxisLeft.Visibility = Visibility.Collapsed
+                    SpatialAxisBottom.Visibility = Visibility.Collapsed
+                    InvertSpatialCheckBox.Visibility = Visibility.Collapsed
+                    StringValueTextBox.Visibility = Visibility.Collapsed
+                    p.Visibility = Visibility.Visible
+                    LowLabel.Visibility = Visibility.Visible
+                    HighLabel.Visibility = Visibility.Visible
 
-                    Dim Flags As TypeFlags = splice.Values.Last().Flags
-
-                    CreatePoint(DrawIndex, 0)
-                    CreatePoint(DrawIndex, PlotHeight)
-                    CreatePoint(DrawIndex, 0)
-                    For i As Integer = 0 To splice.Values.Length - 1
-                        Dim v As DebugValue = splice.Values(i)
-                        Dim InterpolatedValue As Double
-
-                        If Flags.isBoolean Then
-                            If v.Value Then
-                                InterpolatedValue = PlotHeight
-                            Else
-                                InterpolatedValue = 0
-                            End If
-                        ElseIf Flags.isDrawingRectangle Then
-                        ElseIf Flags.isShapesRect Then
-                        ElseIf Flags.isDrawingPoint Then
-                        ElseIf Flags.isWindowsPoint Then
-                        ElseIf Flags.isNumeric Then
-                            InterpolatedValue = Interpolate(v.Value, CurrentTimeline.LowestValue, CurrentTimeline.HighestValue, 0, PlotHeight)
-                        End If
-
-                        CreatePoint(DrawIndex, InterpolatedValue)
-                        CreatePoint(DrawIndex + pointWidth, InterpolatedValue)
-
-                        DrawIndex += pointWidth
+                    For Each pt In newPoints
+                        Points.Add(pt)
                     Next
-
-                    CreatePoint(DrawIndex, 0)
+                    DrawIndex = localDrawIndex
 
                     If Flags.isBoolean Then
                         LowLabel.Text = "False"
@@ -393,21 +666,18 @@ Public Class DebugWindow
 
     Private TreeItems As New Dictionary(Of String, TreeViewItem)
 
-    Private Function CreateTreeItem(Type As Type, Header As String, TreeItemGuid As String, Optional ToolTip As String = Nothing) As TreeViewItem
-        Dim NewValue As TreeViewItem = Nothing
-
-        InvokeUI(Sub()
-                     NewValue = New TreeViewItem
-                     NewValue.Tag = TreeItemGuid
-                     If ToolTip = Nothing Then ToolTip = Type.Name
-                     With NewValue
-                         .ToolTip = ToolTip
-                         .Header = Header
-                         .Background = New SolidColorBrush(DefaultBackground)
-                     End With
-                 End Sub)
-
-        Return NewValue
+    Private Async Function CreateTreeItem(Type As Type, Header As String, TreeItemGuid As String, Optional ToolTip As String = Nothing) As Task(Of TreeViewItem)
+        Return Await ReturnValueUI(Function()
+                                       Dim nv = New TreeViewItem
+                                       nv.Tag = TreeItemGuid
+                                       If ToolTip = Nothing Then ToolTip = Type.Name
+                                       With nv
+                                           .ToolTip = ToolTip
+                                           .Header = Header
+                                           .Background = New SolidColorBrush(DefaultBackground)
+                                       End With
+                                       Return nv
+                                   End Function)
     End Function
 
 #End Region
@@ -449,6 +719,53 @@ Public Class DebugWindow
         End If
     End Sub
 
+    Private Sub ShowAddWatchButton()
+        InvokeUI(Sub()
+                     AddWatchButton.Visibility = Visibility.Visible
+                     p.Visibility = Visibility.Collapsed
+                     StringValueTextBox.Visibility = Visibility.Collapsed
+                     LowLabel.Visibility = Visibility.Collapsed
+                     HighLabel.Visibility = Visibility.Collapsed
+                 End Sub)
+    End Sub
+
+    Private Sub HideAddWatchButton()
+        InvokeUI(Sub()
+                     AddWatchButton.Visibility = Visibility.Collapsed
+                     p.Visibility = Visibility.Visible
+                     StringValueTextBox.Visibility = Visibility.Collapsed
+                     LowLabel.Visibility = Visibility.Visible
+                     HighLabel.Visibility = Visibility.Visible
+                 End Sub)
+    End Sub
+
+    Private Sub AddWatchButton_Click(sender As Object, e As RoutedEventArgs) Handles AddWatchButton.Click
+        If _selectedValueGuid Is Nothing Then Return
+        If Not ValueOwnerLookup.ContainsKey(_selectedValueGuid) Then Return
+
+        Dim info = ValueOwnerLookup(_selectedValueGuid)
+        Dim val = info.Item1
+        Dim watcher = info.Item2
+
+        Dim actualValue As Object = Nothing
+        Try
+            If val.IsField AndAlso val.FieldReference IsNot Nothing Then
+                actualValue = val.FieldReference.Info.GetValue(watcher.AttachedObject)
+            ElseIf val.IsProperty AndAlso val.PropertyReference IsNot Nothing Then
+                actualValue = val.PropertyReference.Info.GetValue(watcher.AttachedObject)
+            End If
+        Catch
+            Return
+        End Try
+
+        If actualValue Is Nothing Then Return
+
+        Dim child As New DebugWatcher(watcher, _selectedValueGuid, actualValue, True)
+        val.Flags.isChild = True
+        _selectedValueGuid = Nothing
+        HideAddWatchButton()
+    End Sub
+
     Private Function SubItemSelected(TVI As TreeViewItem) As Boolean
         For i As Integer = 0 To TVI.Items.Count - 1
             If TVI.Items(i).GetType IsNot GetType(TreeViewItem) Then Continue For
@@ -468,49 +785,52 @@ Public Class DebugWindow
     ''' <summary>
     ''' Tree View Item Updates
     ''' </summary>
-    Private Sub BackgroundWorker_DoWork(state As Object)
+    Private Async Sub BackgroundWorker_DoWork(state As Object)
         Dim ResultInterval As TimeSpan
         Dim ms As Double = 0
 
         Do While Enabled
             Dim nCount As Integer = WatcherCount
             If nCount <> InitializedWatchers.Count Then
+                Dim c As Integer = 0
                 SyncLock (InitializedWatchers)
-                    Dim c As Integer = DebugWatcher.Watchers.Count - 1
-                    For i As Integer = 0 To c
-                        If Not Enabled Then Exit For
+                    c = DebugWatcher.Watchers.Count - 1
+                End SyncLock
+                For i As Integer = 0 To c
+                    If Not Enabled Then Exit For
 
-                        Dim w As DebugWatcher = DebugWatcher.Watchers.Values.ElementAt(i)
-                        Dim t As Type = w.AttachedObject.GetType
+                    Dim w As DebugWatcher = DebugWatcher.Watchers.Values.ElementAt(i)
+                    Dim t As Type = w.AttachedObject.GetType
 
-                        Dim WatcherInitialized As Boolean = InitializedWatchers.ContainsKey(w.Guid)
-                        If Not WatcherInitialized Then
+                    Dim WatcherInitialized As Boolean = InitializedWatchers.ContainsKey(w.Guid)
+                    If Not WatcherInitialized Then
 
-                            If w.isChild Then
-                                Dim ParentInitialized As Boolean = InitializedWatchers.ContainsKey(w.Parent.Guid)
-                                Dim ParentValueInitialized As Boolean = TreeItems.ContainsKey(w.ParentValueGuid)
-                                If ParentInitialized And ParentValueInitialized Then
-                                    InvokeUI(Sub()
-                                                 InitializedWatchers.Add(w.Guid, w)
-                                                 ''' Recursive functionality disabled until finished.
-                                                 AddHandler w.ValueCalculated, AddressOf ValueCalculated
-                                                 AddHandler w.ValueChanged, AddressOf ValueChanged
-                                             End Sub)
-                                End If
-                            Else
-                                Dim NewWatcher As TreeViewItem = CreateTreeItem(t, w.Name, w.Guid)
+                        If w.isChild Then
+                            Dim ParentInitialized As Boolean = InitializedWatchers.ContainsKey(w.Parent.Guid)
+                            Dim ParentValueInitialized As Boolean = TreeItems.ContainsKey(w.ParentValueGuid)
+                            If ParentInitialized And ParentValueInitialized Then
                                 InvokeUI(Sub()
+                                             If InitializedWatchers.ContainsKey(w.Guid) Then Return
                                              InitializedWatchers.Add(w.Guid, w)
-                                             Watchers.Items.Add(NewWatcher)
-                                             TreeItems.Add(w.Guid, NewWatcher)
                                              AddHandler w.ValueCalculated, AddressOf ValueCalculated
                                              AddHandler w.ValueChanged, AddressOf ValueChanged
                                          End Sub)
                             End If
+                        Else
+                            Dim NewWatcher As TreeViewItem = Await CreateTreeItem(t, w.Name, w.Guid)
+                            InvokeUI(Sub()
+                                         If InitializedWatchers.ContainsKey(w.Guid) Then Return
+                                         InitializedWatchers.Add(w.Guid, w)
+                                         Watchers.Items.Add(NewWatcher)
+                                         TreeItems.Add(w.Guid, NewWatcher)
+                                         AddHandler w.ValueCalculated, AddressOf ValueCalculated
+                                         AddHandler w.ValueChanged, AddressOf ValueChanged
+                                     End Sub)
                         End If
-                    Next
-                    _WatcherCount = nCount
-                End SyncLock
+                    End If
+                Next
+                _WatcherCount = nCount
+
             End If
             If NotNothing(CurrentTimeline) Then
                 DrawTimeline()
@@ -543,6 +863,9 @@ Public Class DebugWindow
 
     Private Sub ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
         If Value Is Nothing Then Return
+        If Not ValueOwnerLookup.ContainsKey(Value.Guid) Then
+            ValueOwnerLookup.Add(Value.Guid, Tuple.Create(Value, Watcher))
+        End If
         If Not ContainsTVI(Value) Then
             If Value.Flags.isCollection Then
                 CreateCollectionTVI(Watcher, Value)
@@ -564,7 +887,7 @@ Public Class DebugWindow
         Catch : End Try
     End Sub
 
-    Private Sub UpdateArrayTVI(TVI As TreeViewItem, Value As DebugValue)
+    Private Async Sub UpdateArrayTVI(TVI As TreeViewItem, Value As DebugValue)
         Dim ArrayType As Type = Nothing
         For i As Integer = 0 To Value.Length - 1
             Dim Index As Integer = i
@@ -573,9 +896,9 @@ Public Class DebugWindow
                 If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItem) Then ArrayType = ArrayItem.GetType()
                 Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
                 Dim Header As String = "[" & Index & "] " & ValueToString
-                Dim ItemCount1 As Integer = ReturnValueUI(Function() TVI.Items.Count - 1)
+                Dim ItemCount1 As Integer = Await ReturnValueUI(Function() TVI.Items.Count - 1)
                 If Index > ItemCount1 Then
-                    Dim aTVI As TreeViewItem = CreateTreeItem(ArrayType, Header, Value.Guid)
+                    Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayType, Header, Nothing)
                     InvokeUI(
                         Sub()
                             If Index > Value.Value.Length - 1 Then Return
@@ -604,7 +927,7 @@ Public Class DebugWindow
         Next
     End Sub
 
-    Private Sub UpdateListTVI(TVI As TreeViewItem, Value As DebugValue)
+    Private Async Sub UpdateListTVI(TVI As TreeViewItem, Value As DebugValue)
         Dim ArrayType As Type = Nothing
         Dim L As Integer = Value.Length - 1
         For i As Integer = 0 To L
@@ -617,7 +940,7 @@ Public Class DebugWindow
                 Dim TypeName As String = If(ArrayType IsNot Nothing, ArrayType.Name, "Object")
                 Dim Header As String = "[" & Index & "] " & TypeName & ": " & ValueToString
                 If Index > TVI.Items.Count - 1 Then
-                    Dim aTVI As TreeViewItem = CreateTreeItem(If(ArrayType, GetType(Object)), Header, Value.Guid)
+                    Dim aTVI As TreeViewItem = Await CreateTreeItem(If(ArrayType, GetType(Object)), Header, Nothing)
                     InvokeUI(
                     Sub()
                         If Index > Value.Value.Count - 1 Then Return
@@ -646,45 +969,53 @@ Public Class DebugWindow
         Next
     End Sub
 
-    Private Sub UpdateDictionaryTVI(TVI As TreeViewItem, Value As DebugValue)
+    Private Async Sub UpdateDictionaryTVI(TVI As TreeViewItem, Value As DebugValue)
+        Dim keys As New List(Of Object)
+        Dim values As New List(Of Object)
+        Try
+            Dim keyList As IList = Value.KeyList
+            Dim valueList As IList = Value.ValueList
+            If keyList Is Nothing OrElse valueList Is Nothing Then Return
+            Dim count As Integer = Math.Min(keyList.Count, valueList.Count)
+            For i As Integer = 0 To count - 1
+                keys.Add(keyList(i))
+                values.Add(valueList(i))
+            Next
+        Catch
+            Return
+        End Try
+
         Dim ArrayType As Type = Nothing
-        For i As Integer = 0 To Value.KeyList.Count - 1
+        For i As Integer = 0 To keys.Count - 1
             Dim Index As Integer = i
-            Try
-                If Index > Value.Value.Length - 1 Then Exit For
-                Dim ArrayItemKey As Object = Value.KeyList(Index)
-                Dim ArrayItemValue As Object = Value.ValueList(Index)
-                Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
-                If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItemValue) Then ArrayType = ArrayItemValue.GetType()
-                Dim TypeName As String = If(ArrayType IsNot Nothing, ArrayType.Name, "Object")
-                Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
-                If Index > TVI.Items.Count - 1 Then
-                    Dim aTVI As TreeViewItem = CreateTreeItem(If(ArrayType, GetType(Object)), Header, Value.Guid)
-                    InvokeUI(
-                    Sub()
-                        If Index > Value.Value.Count - 1 Then Return
-                        If TVI.Parent Is Nothing Then Return
-                        Try : TVI.Items.Add(aTVI) : ValueChangedAnim(TVI) : ValueChangedAnim(aTVI) : Catch : End Try
-                    End Sub)
-                Else
-                    InvokeUI(
-                    Sub()
-                        If Index > Value.Value.Count - 1 Then Return
-                        If TVI.Parent Is Nothing Then Return
-                        Try : UpdateHeader(TVI.Items(Index), Header, TVI) : Catch : End Try
-                    End Sub)
-                End If
-                If Not IsNothing(ArrayItemValue) AndAlso Not IsSystemType(ArrayItemValue.GetType()) Then
-                    Dim elementTVI As TreeViewItem = Nothing
-                    InvokeUI(Sub()
-                                 If Index <= TVI.Items.Count - 1 Then
-                                     Try : elementTVI = DirectCast(TVI.Items(Index), TreeViewItem) : Catch : End Try
-                                 End If
-                             End Sub)
-                    If elementTVI IsNot Nothing Then UpdateItemProperties(elementTVI, ArrayItemValue)
-                End If
-            Catch
-            End Try
+            Dim ArrayItemKey As Object = keys(Index)
+            Dim ArrayItemValue As Object = values(Index)
+            Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
+            If ArrayType Is Nothing AndAlso Not IsNothing(ArrayItemValue) Then ArrayType = ArrayItemValue.GetType()
+            Dim TypeName As String = If(ArrayType IsNot Nothing, ArrayType.Name, "Object")
+            Dim Header As String = "[" & Index & "]" & ArrayItemKey.ToString() & ": " & ValueToString
+            InvokeUI(Async Sub()
+                         If Index > TVI.Items.Count - 1 Then
+                             Dim aTVI As TreeViewItem = Await CreateTreeItem(If(ArrayType, GetType(Object)), Header, Nothing)
+                             If TVI.Parent Is Nothing Then Return
+                             Try : TVI.Items.Add(aTVI) : ValueChangedAnim(TVI) : ValueChangedAnim(aTVI) : Catch : End Try
+                         Else
+
+                             If TVI.Parent Is Nothing Then Return
+                             If Index > TVI.Items.Count - 1 Then Return
+                             Try : UpdateHeader(TVI.Items(Index), Header, TVI) : Catch : End Try
+                         End If
+                     End Sub)
+
+            If Not IsNothing(ArrayItemValue) AndAlso Not IsSystemType(ArrayItemValue.GetType()) Then
+                Dim elementTVI As TreeViewItem = Nothing
+                InvokeUI(Sub()
+                             If Index <= TVI.Items.Count - 1 Then
+                                 Try : elementTVI = DirectCast(TVI.Items(Index), TreeViewItem) : Catch : End Try
+                             End If
+                         End Sub)
+                If elementTVI IsNot Nothing Then UpdateItemProperties(elementTVI, ArrayItemValue)
+            End If
         Next
     End Sub
 
@@ -750,12 +1081,12 @@ Public Class DebugWindow
                  End Sub)
     End Sub
 
-    Private Sub PruneCollection(TVI As TreeViewItem, Value As DebugValue)
+    Private Async Sub PruneCollection(TVI As TreeViewItem, Value As DebugValue)
         If Value.Length <= 0 AndAlso Not Value.Flags.isChild Then
             InvokeUI(Sub() TVI.Items.Clear())
             Return
         End If
-        Dim ItemCount As Integer = ReturnValueUI(Function() TVI.Items.Count)
+        Dim ItemCount As Integer = Await ReturnValueUI(Function() TVI.Items.Count)
         If ItemCount > Value.Length Then
             For x As Integer = ItemCount - 1 To Value.Length Step -1
                 Dim Index As Integer = x
@@ -783,8 +1114,22 @@ Public Class DebugWindow
     Private Sub UpdateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
         If ContainsTVI(Value) Then
             Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Me.ValueToString(Value.Value.ToString()))
-            Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
-            InvokeUI(Sub() UpdateHeader(GetTVI(Value), Header))
+            If Value.Flags.isString Then
+                InvokeUI(Sub()
+                             Dim TVI = GetTVI(Value)
+                             Dim sp = TryCast(TVI.Header, StackPanel)
+                             If sp IsNot Nothing AndAlso sp.Children.Count > 1 Then
+                                 Dim tb = TryCast(sp.Children(1), TextBox)
+                                 If tb IsNot Nothing AndAlso tb.Text <> ValueToString Then
+                                     tb.Text = ValueToString
+                                     ValueChangedAnim(TVI)
+                                 End If
+                             End If
+                         End Sub)
+            Else
+                Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
+                InvokeUI(Sub() UpdateHeader(GetTVI(Value), Header))
+            End If
         End If
     End Sub
 
@@ -812,8 +1157,8 @@ Public Class DebugWindow
         Return TreeItems.ContainsKey(Guid)
     End Function
 
-    Private Sub CreateCollectionTVI(Watcher As DebugWatcher, Value As DebugValue)
-        Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Value.Name, Value.Guid)
+    Private Async Sub CreateCollectionTVI(Watcher As DebugWatcher, Value As DebugValue)
+        Dim TVI As TreeViewItem = Await CreateTreeItem(Value.Type, Value.Name, Value.Guid)
 
         Dim ArrayType As Type = Nothing
         Dim L As Integer = Value.Length - 1
@@ -821,17 +1166,17 @@ Public Class DebugWindow
             Dim index As Integer = i
             If Value.Flags.isDictionary Then
                 If index > Value.Value.Count - 1 Then Exit For
-                ArrayType = Value.Type.GetGenericArguments()(1)
+                ArrayType = DirectCast(Value.Value, IEnumerable).Cast(Of Object)().ElementAt(0).GetType()
             ElseIf Value.Flags.isList Then
                 If index > Value.Value.Count - 1 Then Exit For
-                ArrayType = Value.Type.GetGenericArguments()(0)
+
+                ArrayType = Value.Value(index).GetType() ' Value.Type.GetGenericArguments()(0)
             ElseIf Value.Flags.isArray Then
                 If index > Value.Value.Length - 1 Then Exit For
                 ArrayType = Value.Type.GetElementType()
             End If
 
-            Dim ArrayItem As Object = Value.Value(index)
-            Dim aTVI As TreeViewItem = CreateTreeItem(ArrayType, ArrayType.Name, Value.Guid)
+
 
             InvokeUI(Sub()
                          If Value.Flags.isDictionary Then
@@ -841,6 +1186,21 @@ Public Class DebugWindow
                          ElseIf Value.Flags.isArray Then
                              If index > Value.Value.Length - 1 Then Return
                          End If
+
+                     End Sub)
+            Dim Header As String
+            If Value.Flags.isDictionary Then
+                Dim ArrayItemKey As Object = If(index > Value.KeyList.Count - 1, "NULL", Value.KeyList(index))
+                Dim ArrayItemValue As Object = If(index > Value.ValueList.Count - 1, Nothing, Value.ValueList(index))
+                Dim ValueToString As String = If(IsNothing(ArrayItemValue), "NULL", Me.ValueToString(ArrayItemValue.ToString()))
+                Header = "[" & index & "] " & ArrayItemKey.ToString() & ": " & ValueToString
+            Else
+                Dim ArrayItem As Object = Value.Value(index)
+                Dim ValueToString As String = If(IsNothing(ArrayItem), "NULL", Me.ValueToString(ArrayItem.ToString()))
+                Header = "[" & index & "] " & ValueToString
+            End If
+            Dim aTVI As TreeViewItem = Await CreateTreeItem(ArrayType, Header, Nothing)
+            InvokeUI(Sub()
                          Try : TVI.Items.Add(aTVI) : Catch : End Try
                      End Sub)
 
@@ -849,11 +1209,33 @@ Public Class DebugWindow
 
     End Sub
 
-    Private Sub CreateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
+    Private Async Sub CreateSingleTVI(Watcher As DebugWatcher, Value As DebugValue)
         Dim ValueToString As String = If(IsNothing(Value.Value), "NULL", Me.ValueToString(Value.Value))
-        Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
-        Dim TVI As TreeViewItem = CreateTreeItem(Value.Type, Header, Value.Guid, Nothing)
-        AddTVI(TVI, Watcher, Value)
+        If Value.Flags.isString Then
+            Dim TVI As TreeViewItem = Await CreateTreeItem(Value.Type, Value.Name, Value.Guid, Nothing)
+            InvokeUI(Sub()
+                         Dim sp As New StackPanel()
+                         sp.Orientation = Orientation.Vertical
+                         Dim nameBlock As New TextBlock()
+                         nameBlock.Text = Value.Name
+                         nameBlock.Foreground = New SolidColorBrush(Colors.White)
+                         sp.Children.Add(nameBlock)
+                         Dim tb As New TextBox()
+                         tb.Text = ValueToString
+                         tb.IsReadOnly = True
+                         tb.TextWrapping = TextWrapping.Wrap
+                         tb.Background = New SolidColorBrush(DefaultBackground)
+                         tb.Foreground = New SolidColorBrush(Colors.LightGray)
+                         tb.BorderThickness = New Thickness(0)
+                         sp.Children.Add(tb)
+                         TVI.Header = sp
+                     End Sub)
+            AddTVI(TVI, Watcher, Value)
+        Else
+            Dim Header As String = Value.Name & vbCrLf & "    " & ValueToString
+            Dim TVI As TreeViewItem = Await CreateTreeItem(Value.Type, Header, Value.Guid, Nothing)
+            AddTVI(TVI, Watcher, Value)
+        End If
     End Sub
 
     Private Sub AddTVI(TVI As TreeViewItem, Watcher As DebugWatcher, Value As DebugValue)
