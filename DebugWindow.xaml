@@ -12,8 +12,8 @@
             <RowDefinition Height="60"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="9*"/>
-            <ColumnDefinition Width="23*"/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="7*"/>
         </Grid.ColumnDefinitions>
         <TreeView x:Name="Watchers" Foreground="#FF7F7F7F" Background="#FF0E0E0E" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
             <TreeView.ItemsPanel>
@@ -33,9 +33,11 @@
             <TextBlock x:Name="LowLabel" Foreground="WhiteSmoke" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="5,0,0,5">0</TextBlock>
             <TextBlock x:Name="HighLabel" Foreground="WhiteSmoke" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,5,5,0">100</TextBlock>
         </Grid>
-        <Grid x:Name="TimelineGrid" Background="#FF212121" Grid.Column="1" Grid.Row="1">
+        <Grid x:Name="TimelineGrid" Background="#FF212121" Grid.Column="1" Margin="0,374,0,0" Grid.RowSpan="2">
             <mah:RangeSlider x:Name="Slider" Margin="10,10,10,10" MinRangeWidth="0" UpperValue="100" MinRange="10" SmallChange="1"/>
         </Grid>
-        <mah:ToggleSwitch x:Name="ToggleEnabled" Header="Debugging" Grid.Row="1" Width="215" Margin="7,5,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Left" IsOn="True"/>
+        <StackPanel Orientation="Horizontal" Grid.Row="1" VerticalAlignment="Center" Margin="7,0,0,0" Height="41">
+            <mah:ToggleSwitch x:Name="ToggleEnabled" Header="Debugging" Margin="0,5,0,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" IsOn="True"/>
+        </StackPanel>
     </Grid>
 </mah:MetroWindow>

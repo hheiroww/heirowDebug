@@ -98,9 +98,7 @@ Namespace Collections
         Protected Overridable Sub Dispose(disposing As Boolean)
             If Not disposedValue Then
                 If disposing Then
-                    _LowestValue.Dispose()
                     _LowestValue = Nothing
-                    _HighestValue.Dispose()
                     _HighestValue = Nothing
                     Dim count As Integer = Values.Count - 1
                     For i As Integer = count To 0 Step -1

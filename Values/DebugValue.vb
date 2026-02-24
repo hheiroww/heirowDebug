@@ -240,9 +240,9 @@ Namespace Values
                 IgnoreTypes.Add(t)
             End If
             Dim Out As New DebugValue(FieldReference.Info.Name, FieldReference, Nothing, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
-            If Not Flags.isSystem AndAlso Not Flags.isNothing AndAlso isRecursive Then
-                ''' Recursive Watcher creation.
-                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, isRecursive)
+            If Not Flags.isSystem AndAlso Not Flags.isNothing Then
+                ''' Child Watcher creation for types with fields/properties.
+                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
                 Flags.isChild = True
             End If
             Return Out
@@ -272,9 +272,9 @@ Namespace Values
                 IgnoreTypes.Add(t)
             End If
             Dim Out As New DebugValue(PropertyReference.Info.Name, Nothing, PropertyReference, t, Flags, CurrentValue, True, Nothing, ChangedIndexies, isRecursive) With {._CalculationTime = TimeToCalculate}
-            If Not Flags.isSystem AndAlso Flags.isNothing AndAlso isRecursive Then
-                ''' Recursive Watcher creation.
-                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, isRecursive)
+            If Not Flags.isSystem AndAlso Not Flags.isNothing Then
+                ''' Child Watcher creation for types with fields/properties.
+                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
                 Flags.isChild = True
             End If
             Return Out
@@ -352,20 +352,28 @@ Namespace Values
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.FieldType.Name & "*")
                 _FieldReference = WorkerState.Reference
                 _IsField = True
+                If Not DebugWatcher.Watchers.ContainsKey(Guid) Then
+                    Dim ActualValue As New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.GetValue(WorkerState.Instance))
+                    If Not ActualValue.IsNothing Then
+                        DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True)
+                        Flags.isChild = True
+                    End If
+                End If
             ElseIf IsProperty AndAlso Not Flags.isSystem Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.PropertyType.Name & "*")
                 _PropertyReference = WorkerState.Reference
                 _IsProperty = True
+                If Not DebugWatcher.Watchers.ContainsKey(Guid) Then
+                    Dim ActualValue As New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.GetValue(WorkerState.Instance))
+                    If Not ActualValue.IsNothing Then
+                        DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True)
+                        Flags.isChild = True
+                    End If
+                End If
             End If
 
             Dim CurrentValue = SafeValue.Value
             Dim ValueChanged As Boolean = False
-
-            If Not Flags.isSystem AndAlso Not SafeValue.IsNothing AndAlso IsRecursive AndAlso Not DebugWatcher.Watchers.ContainsKey(Guid) Then
-                ''' Recursive Watcher creation.
-                DebugWatcher.CreateChild(WorkerState.Watcher, Guid, CurrentValue, IsRecursive)
-                Flags.isChild = True
-            End If
 
             _Flags = GetTypeFlags(SafeValue, Type)
             If Flags.isArray Then

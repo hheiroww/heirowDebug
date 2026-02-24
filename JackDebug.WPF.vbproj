@@ -8,7 +8,7 @@
     <RootNamespace>JackDebug.WPF</RootNamespace>
     <UseWPF>true</UseWPF>
     <ImportedNamespaces>System.Drawing=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,JackDebug=True</ImportedNamespaces>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
     <Title>Jack Debug (WPF)</Title>
@@ -37,21 +37,6 @@
 	
   <ItemGroup>
     <Import Include="System.Drawing" />
-  </ItemGroup>
-	
-  <ItemGroup>
-    <None Include="..\..\JackDebug_README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\License.txt">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\..\source\repos\wShare\wView\Resources\Dark_noBG_face_256.png">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
   </ItemGroup>
 	
   <ItemGroup>
