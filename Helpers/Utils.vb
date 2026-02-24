@@ -1,10 +1,11 @@
-﻿Imports System.Reflection
+﻿Imports System.Collections.Concurrent
+Imports System.Reflection
 Imports System.Runtime.CompilerServices
 Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Threading
 Imports JackDebug.WPF.Values
-Imports MicroSerializationLibrary.Serialization
+Imports SocketJack.Serialization
 
 Public Module Utils
 
@@ -20,7 +21,7 @@ Public Module Utils
             _Interval = TimeSpan.FromMilliseconds(IntervalMilliseconds)
         End Set
     End Property
-    Private _FramesPerSecond As Integer = 30
+    Private _FramesPerSecond As Integer = 60
     Public ReadOnly Property IntervalMilliseconds As Double
         Get
             Return _IntervalMilliseconds
@@ -45,25 +46,20 @@ Public Module Utils
         Dispatcher.PushFrame(frame)
     End Sub
 
-    Public Sub ForceUI()
-        ForceInvoke(Sub()
-                    End Sub)
-    End Sub
-
     Public Sub InvokeUI(action As Action)
         Try
             Application.Current.Dispatcher.Invoke(action)
         Catch ex As Exception
 
         End Try
-        'ForceInvoke(action)
     End Sub
 
-    Public Function ReturnValueUI(action As Func(Of Object)) As Object
+    Public Async Function ReturnValueUI(action As Func(Of Object)) As Task(Of Object)
         Try
-            Return Application.Current.Dispatcher.Invoke(action)
+            Return Await Application.Current.Dispatcher.InvokeAsync(action)
         Catch ex As Exception
         End Try
+        Return Nothing
         'ForceInvoke(action)
     End Function
 
@@ -259,7 +255,9 @@ Public Module Utils
 
     Public Function IsDictionary(o As Object) As Boolean
         If o Is Nothing Then Return False
-        Return TypeOf o Is IDictionary AndAlso o.GetType().IsGenericType AndAlso o.GetType().GetGenericTypeDefinition().IsAssignableFrom(GetType(Dictionary(Of,)))
+        If Not (TypeOf o Is IDictionary AndAlso o.GetType().IsGenericType) Then Return False
+        Dim genericDef As Type = o.GetType().GetGenericTypeDefinition()
+        Return genericDef Is GetType(Dictionary(Of,)) OrElse genericDef Is GetType(ConcurrentDictionary(Of,))
     End Function
 
     Public Function isUI() As Boolean

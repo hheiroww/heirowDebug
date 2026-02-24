@@ -1,5 +1,5 @@
-Imports MicroSerializationLibrary.Serialization
-Imports MicroSerializationLibrary
+Imports SocketJack.Serialization
+Imports SocketJack
 Imports System.Reflection
 Imports System.Threading
 Imports JackDebug.WPF.Values
@@ -56,57 +56,6 @@ Public Class DebugWatcher
 
     Public ChildWatcherValues As New List(Of String)
     Public ChildWatcherGuids As New List(Of String)
-
-#End Region
-
-#Region "Shared"
-
-    Public Shared Property EnableDispatcherProperties As Boolean = False
-    Public Shared Property BlacklistedTypes As New List(Of Type)
-    Public Shared Property Watchers As New Dictionary(Of String, DebugWatcher)
-    Public Shared Property DebugWindow As DebugWindow
-    Public Shared Property MaxRecursionDepth As Integer = 2
-
-    Public Shared Sub CreateDebugWindow()
-        If DebugWindow IsNot Nothing Then
-            If DebugWindow.Enabled Then
-                DebugWindow.Enabled = False
-                DebugWindow.Close()
-                DebugWindow = Nothing
-            End If
-        End If
-        DebugWindow = New DebugWindow()
-        DebugWindow.Show()
-    End Sub
-
-#End Region
-
-#Region "Events"
-
-    Public Event EnabledStateChanged(isEnabled As Boolean)
-
-    ''' <summary>
-    ''' Fires when the watcher has a new value.
-    ''' </summary>
-    ''' <param name="Watcher">The associated Watcher</param>
-    ''' <param name="Value">The Value that was calculated/processed</param>
-    Public Event ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
-
-    ''' <summary>
-    ''' Detects main & child Item Value Changes
-    ''' </summary>
-    ''' <param name="Watcher">The associated Watcher</param>
-    ''' <param name="Value">The Value that changed</param>
-    ''' <param name="ArrayIndexies">The Index(s) that have changed</param>
-    Public Event ValueChanged(Watcher As DebugWatcher, Value As DebugValue, ArrayIndexies As List(Of Integer))
-
-    Public Sub OnChangedValue(Watcher As DebugWatcher, ChangedValue As DebugValue)
-        RaiseEvent ValueChanged(Watcher, ChangedValue, ChangedValue.ChangedIndexies)
-    End Sub
-
-    Public Sub OnValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
-        RaiseEvent ValueCalculated(Watcher, Value)
-    End Sub
 
 #End Region
 
@@ -219,6 +168,59 @@ Public Class DebugWatcher
 
 #End Region
 
+
+#Region "Shared"
+
+    Public Shared Property EnableDispatcherProperties As Boolean = False
+    Public Shared Property BlacklistedTypes As New List(Of Type)
+    Public Shared Property Watchers As New Dictionary(Of String, DebugWatcher)
+    Public Shared Property DebugWindow As DebugWindow
+    Public Shared Property MaxRecursionDepth As Integer = 2
+
+    Public Shared Sub CreateDebugWindow()
+        If DebugWindow IsNot Nothing Then
+            If DebugWindow.Enabled Then
+                DebugWindow.Enabled = False
+                DebugWindow.Close()
+                DebugWindow = Nothing
+            End If
+        End If
+        DebugWindow = New DebugWindow()
+        DebugWindow.Show()
+    End Sub
+
+#End Region
+
+#Region "Events"
+
+    Public Event EnabledStateChanged(isEnabled As Boolean)
+
+    ''' <summary>
+    ''' Fires when the watcher has a new value.
+    ''' </summary>
+    ''' <param name="Watcher">The associated Watcher</param>
+    ''' <param name="Value">The Value that was calculated/processed</param>
+    Public Event ValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+
+    ''' <summary>
+    ''' Detects main & child Item Value Changes
+    ''' </summary>
+    ''' <param name="Watcher">The associated Watcher</param>
+    ''' <param name="Value">The Value that changed</param>
+    ''' <param name="ArrayIndexies">The Index(s) that have changed</param>
+    Public Event ValueChanged(Watcher As DebugWatcher, Value As DebugValue, ArrayIndexies As List(Of Integer))
+
+    Public Sub OnChangedValue(Watcher As DebugWatcher, ChangedValue As DebugValue)
+        RaiseEvent ValueChanged(Watcher, ChangedValue, ChangedValue.ChangedIndexies)
+    End Sub
+
+    Public Sub OnValueCalculated(Watcher As DebugWatcher, Value As DebugValue)
+        RaiseEvent ValueCalculated(Watcher, Value)
+    End Sub
+
+#End Region
+
+
 #Region "Initializers"
 
     ''' <summary>
@@ -254,16 +256,15 @@ Public Class DebugWatcher
         Parent.ChildWatcherValues.Add(ParentValueGuid)
         Parent.ChildWatcherGuids.Add(Guid)
         Initialize(AttachedTo)
-        isEnabled = Parent.isEnabled
     End Sub
 
     Private Sub Initialize(AttachedTo As Object, Optional Name As String = "")
         _Name = If(Name = "", AttachedTo.GetType().ToString(), Name)
         _AttachedObject = AttachedTo
-        DeserializationWrapper.ReflectionFlags = BindingFlags.Instance Or BindingFlags.[Public] Or BindingFlags.NonPublic
+        Wrapper.ReflectionFlags = BindingFlags.Instance Or BindingFlags.[Public] Or BindingFlags.NonPublic
 
-        _Fields = DeserializationWrapper.GetFieldReferences(AttachedObject.GetType()).ToArray()
-        _Properties = DeserializationWrapper.GetPropertyReferences(AttachedObject.GetType()).ToArray()
+        _Fields = Wrapper.GetFieldReferences(AttachedObject.GetType()).ToArray()
+        _Properties = Wrapper.GetPropertyReferences(AttachedObject.GetType()).ToArray()
 
         ValueCount = If(Fields IsNot Nothing, _Fields.Count, 0) + If(Properties IsNot Nothing, _Properties.Count, 0)
         If NotNothing(Parent) Then
@@ -276,6 +277,7 @@ Public Class DebugWatcher
     Public Shared Function CreateChild(Parent As DebugWatcher, ParentValueGuid As String, AttachedTo As Object, Recursive As Boolean) As DebugWatcher
         If Parent IsNot Nothing AndAlso Not Parent.ChildWatcherValues.Contains(ParentValueGuid) Then
             If Parent.Depth >= MaxRecursionDepth Then Return Nothing
+            If AttachedTo Is Nothing Then Return Nothing
             Dim w As New DebugWatcher(Parent, ParentValueGuid, AttachedTo, Recursive)
             Return w
         End If
@@ -321,7 +323,7 @@ Public Class DebugWatcher
     Private Shared Function IsThreadSafeType(t As Type) As Boolean
         Return Not GetType(System.Windows.Threading.DispatcherObject).IsAssignableFrom(t)
     End Function
-
+    Dim lastfieldorpropname As String = ""
     Private Async Function WorkerCalculateAsync(state As Object, token As CancellationToken) As Task
         Dim memberType As Type = If(TypeOf state Is FieldReference,
             DirectCast(state, FieldReference).Info.FieldType,
@@ -347,21 +349,28 @@ Public Class DebugWatcher
             Dim valueChanged As Boolean = False
 
             If NotNothing(v) AndAlso v.Guid IsNot Nothing Then
+                Dim s As Boolean = False
                 SyncLock (ValueTimeline.Timelines)
-                    value = v.Clone()
-                    If Not ValueTimeline.Timelines.ContainsKey(value.Guid) Then
-                        ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
-                    Else
-                        ValueTimeline.Timelines(value.Guid).AddValue(value)
-                    End If
-                    ResultInterval = DateTime.UtcNow - StartTime
-                    ms = ResultInterval.TotalMilliseconds
-                    value.CalculationTime = ResultInterval
-                    valueChanged = value.ValueChanged
-                End SyncLock
+                    Try
+                        value = v.Clone()
+                        If Not ValueTimeline.Timelines.ContainsKey(value.Guid) Then
+                            ValueTimeline.Timelines.Add(value.Guid, New ValueTimeline(value.Guid, value))
+                        Else
+                            ValueTimeline.Timelines(value.Guid).AddValue(value)
+                        End If
+                        ResultInterval = DateTime.UtcNow - StartTime
+                        ms = ResultInterval.TotalMilliseconds
+                        value.CalculationTime = ResultInterval
+                        valueChanged = value.ValueChanged
+                        s = True
+                    Catch ex As Exception
 
-                OnValueCalculated(Me, value)
-                If valueChanged Then OnChangedValue(Me, value)
+                    End Try
+                End SyncLock
+                If s Then
+                    OnValueCalculated(Me, value)
+                    If valueChanged Then OnChangedValue(Me, value)
+                End If
             End If
 
             Try
@@ -393,29 +402,37 @@ Public Class DebugWatcher
 
     Public Function CurrentFieldValue(f As FieldReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
-            If FieldValues.ContainsKey(f.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject, .Watcher = Me}
-                Return FieldValues(f.Index).UpdateValue(StateObject)
-            Else
-                Dim newValue As DebugValue = DebugValue.NewFieldValue(Me, f, AttachedObject, IsRecursive).SetValueChanged(True)
-                FieldValues.Add(f.Index, newValue)
-                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
-                Return newValue
-            End If
+            Try
+                If FieldValues.ContainsKey(f.Index) Then
+                    Dim StateObject As New ValueWorkerState(ReferenceType.Field) With {.Reference = f, .Instance = AttachedObject, .Watcher = Me}
+                    Return FieldValues(f.Index).UpdateValue(StateObject)
+                Else
+                    Dim newValue As DebugValue = DebugValue.NewFieldValue(Me, f, AttachedObject, IsRecursive).SetValueChanged(True)
+                    FieldValues.Add(f.Index, newValue)
+                    ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
+                    Return newValue
+                End If
+            Catch ex As Exception
+                Return Nothing
+            End Try
         End SyncLock
     End Function
 
     Public Function CurrentPropertyValue(p As PropertyReference) As DebugValue
         SyncLock (ValueTimeline.Timelines)
-            If PropertyValues.ContainsKey(p.Index) Then
-                Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject, .Watcher = Me}
-                Return PropertyValues(p.Index).UpdateValue(StateObject)
-            Else
-                Dim newValue As DebugValue = DebugValue.NewPropertyValue(Me, p, AttachedObject, IsRecursive).SetValueChanged(True)
-                PropertyValues.Add(p.Index, newValue)
-                ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
-                Return newValue
-            End If
+            Try
+                If PropertyValues.ContainsKey(p.Index) Then
+                    Dim StateObject As New ValueWorkerState(ReferenceType.Property) With {.Reference = p, .Instance = AttachedObject, .Watcher = Me}
+                    Return PropertyValues(p.Index).UpdateValue(StateObject)
+                Else
+                    Dim newValue As DebugValue = DebugValue.NewPropertyValue(Me, p, AttachedObject, IsRecursive).SetValueChanged(True)
+                    PropertyValues.Add(p.Index, newValue)
+                    ValueTimeline.Timelines.Add(newValue.Guid, New ValueTimeline(newValue.Guid))
+                    Return newValue
+                End If
+            Catch ex As Exception
+                Return Nothing
+            End Try
         End SyncLock
     End Function
 

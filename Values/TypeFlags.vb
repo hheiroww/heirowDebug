@@ -30,6 +30,16 @@
 
         Public Property isShapesRect As Boolean
 
+        Public Property isWindowsRect As Boolean
+
+        Public Property isString As Boolean
+
+        Public Property isVector As Boolean
+
+        Public Property isDrawingSize As Boolean
+
+        Public Property isWindowsSize As Boolean
+
         Public Property isIgnored As Boolean
 
         Public Property isXAML As Boolean
@@ -50,6 +60,11 @@
             isWindowsPoint = False
             isDrawingRectangle = False
             isShapesRect = False
+            isWindowsRect = False
+            isString = False
+            isVector = False
+            isDrawingSize = False
+            isWindowsSize = False
             isNothing = True
         End Sub
 
@@ -57,9 +72,14 @@
             Return (isNumeric Or
                     isBoolean Or
                     isDrawingPoint Or
+                    isWindowsPoint Or
                     isShapesRect Or
+                    isWindowsRect Or
                     isDrawingRectangle Or
-                    isDrawingRectangle) AndAlso
+                    isString Or
+                    isVector Or
+                    isDrawingSize Or
+                    isWindowsSize) AndAlso
                     Not isNothing
         End Function
 

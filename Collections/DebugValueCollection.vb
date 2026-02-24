@@ -1,5 +1,5 @@
 ﻿Imports JackDebug.WPF.Values
-Imports MicroSerializationLibrary.Serialization
+Imports SocketJack.Serialization
 
 Namespace Collections
     Public Class DebugValueCollection
