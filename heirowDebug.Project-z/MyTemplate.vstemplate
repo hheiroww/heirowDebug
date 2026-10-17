@@ -1,0 +1,31 @@
+<VSTemplate Version="3.0.0" Type="Project"
+            xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <Name>heirowDebug Project-Z sample</Name>
+    <Description>Project-Z starter scene for heirowDebug 2026</Description>
+    <ProjectType>VisualBasic</ProjectType>
+    <SortOrder>1000</SortOrder>
+    <DefaultName>MyGameApp</DefaultName>
+    <CreateNewFolder>true</CreateNewFolder>
+    <ProvideDefaultName>true</ProvideDefaultName>
+    <LocationField>Enabled</LocationField>
+    <EnableLocationBrowseButton>true</EnableLocationBrowseButton>
+  </TemplateData>
+  <TemplateContent>
+    <Project File="heirowDebug.Project-z.vbproj" ReplaceParameters="true">
+      <ProjectItem ReplaceParameters="true" OpenInEditor="false">Program.vb</ProjectItem>
+      <ProjectItem ReplaceParameters="true" OpenInEditor="true">GameWindow.vb</ProjectItem>
+      <ProjectItem ReplaceParameters="true" OpenInEditor="false">GameWindow_Generated.vb</ProjectItem>
+      <Folder Name="Scenes" TargetFolderName="Scenes">
+        <ProjectItem ReplaceParameters="true" OpenInEditor="true">MainScene.vb</ProjectItem>
+      </Folder>
+      <Folder Name="Properties" TargetFolderName="Properties">
+        <ProjectItem ReplaceParameters="true">AssemblyInfo.vb</ProjectItem>
+      </Folder>
+      <Folder Name="Content" TargetFolderName="Content">
+        <Folder Name="Fonts" TargetFolderName="Fonts" />
+        <Folder Name="Textures" TargetFolderName="Textures" />
+      </Folder>
+    </Project>
+  </TemplateContent>
+</VSTemplate>

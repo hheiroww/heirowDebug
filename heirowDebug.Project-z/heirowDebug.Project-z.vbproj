@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>heirowDebug.ProjectZ</RootNamespace>
+    <AssemblyName>heirowDebug.ProjectZ</AssemblyName>
+    <UseWindowsForms>True</UseWindowsForms>
+    <UseWPF>True</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <DefineConstants>$(DefineConstants),WINDOWS=-1</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OptionStrict>On</OptionStrict>
+    <StartupObject>heirowDebug.ProjectZ.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Content\**" />
+    <None Remove="My Project\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ProjectZ" Version="2026.10.17.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.vb" />
+    <Compile Include="GameWindow.vb" />
+    <Compile Include="GameWindow_Generated.vb" />
+    <Compile Include="Properties\AssemblyInfo.vb" />
+    <Compile Include="Scenes\MainScene.vb" />
+  </ItemGroup>
+</Project>

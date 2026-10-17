@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>heirowDebug</AssemblyName>
+    <RootNamespace>heirowDebugInjector</RootNamespace>
+    <Product>heirowDebug 2026</Product>
+    <Title>heirowDebug 2026</Title>
+    <ApplicationIcon>..\Assets\heirowDebug.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\Assets\heirowDebug.png" Link="Assets\heirowDebug.png" />
+    <Resource Include="..\Assets\heirowDebug.ico" Link="Assets\heirowDebug.ico" />
+    <ProjectReference Include="..\heirowDebug.Injector.Hook\heirowDebug.Injector.Hook.csproj" />
+  </ItemGroup>
+</Project>

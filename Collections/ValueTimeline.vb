@@ -1,5 +1,5 @@
-﻿Imports System.Windows.Controls
-Imports JackDebug.WPF.Values
+Imports System.Windows.Controls
+Imports heirowDebug.WPF.Values
 Imports SocketJack.Serialization
 
 Namespace Collections
@@ -8,6 +8,7 @@ Namespace Collections
 
 
         Public Shared ReadOnly Property Timelines As New Dictionary(Of String, ValueTimeline)
+        Public Shared Property MaximumSnapshotsPerValue As Integer = 2000
 
 #Region "Properties"
         Public ReadOnly Property GUID As String
@@ -79,7 +80,7 @@ Namespace Collections
         Public Property IsEnabled As Boolean = True
 
         Public Property Values As New List(Of DebugValue)
-        Public Property Keys As New List(Of Integer)
+        Public Property Keys As New List(Of Long)
 
 #End Region
 
@@ -155,8 +156,23 @@ Namespace Collections
         Public Sub AddValue(value As DebugValue)
             SyncLock (Keys)
                 SyncLock (Values)
+                    Dim capturedTimecode As Long = Math.Max(0L, DateTime.UtcNow.Ticks - DebugWatcher.FirstTimeEnabled.Ticks)
+                    If Values.Count = 0 Then
+                        value.Timecode = Math.Max(0L, value.Timecode)
+                    Else
+                        Dim previousTimecode As Long = Values(Values.Count - 1).Timecode
+                        If value.Timecode <= previousTimecode Then
+                            Dim minimumNext As Long = If(previousTimecode = Long.MaxValue, Long.MaxValue, previousTimecode + 1L)
+                            value.Timecode = Math.Max(minimumNext, capturedTimecode)
+                        End If
+                    End If
                     Keys.Add(value.Timecode)
                     Values.Add(value)
+                    If MaximumSnapshotsPerValue > 0 AndAlso Values.Count > MaximumSnapshotsPerValue Then
+                        Values(0).Dispose()
+                        Values.RemoveAt(0)
+                        Keys.RemoveAt(0)
+                    End If
                 End SyncLock
             End SyncLock
             _Maximum = Keys.Count

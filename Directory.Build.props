@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <Version>2026.10.17.0</Version>
+    <Product>heirowDebug 2026</Product>
+    <Company>heirow</Company>
+    <Copyright>Copyright © heirow 2026</Copyright>
+    <IsPackable>false</IsPackable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**;**\.vs\**;artifacts\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

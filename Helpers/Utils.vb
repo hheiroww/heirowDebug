@@ -1,23 +1,32 @@
-﻿Imports System.Collections.Concurrent
+Imports System.Collections.Concurrent
 Imports System.Reflection
 Imports System.Runtime.CompilerServices
 Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Threading
-Imports JackDebug.WPF.Values
+Imports heirowDebug.WPF.Values
+Imports heirowDebug.WPF.Collections
 Imports SocketJack.Serialization
 
 Public Module Utils
 
-    Public ReadOnly Property MinimumInterval As TimeSpan = TimeSpan.FromTicks(2500)
+    Public Enum DebugProfile
+        NearInstant
+        Fast
+        Medium
+        Slow
+        PowerSaving
+    End Enum
+
+    Public ReadOnly Property MinimumInterval As TimeSpan = TimeSpan.FromMilliseconds(1)
 
     Public Property FramesPerSecond
         Get
             Return _FramesPerSecond
         End Get
         Set(value)
-            _FramesPerSecond = value
-            _IntervalMilliseconds = 1000 / FramesPerSecond
+            _FramesPerSecond = Math.Max(1, CInt(value))
+            _IntervalMilliseconds = 1000.0 / _FramesPerSecond
             _Interval = TimeSpan.FromMilliseconds(IntervalMilliseconds)
         End Set
     End Property
@@ -35,6 +44,37 @@ Public Module Utils
         End Get
     End Property
     Private _Interval As TimeSpan = TimeSpan.FromMilliseconds(IntervalMilliseconds)
+
+    ''' <summary>
+    ''' Controls the global sampling frequency and snapshot retention policy.
+    ''' Existing watchers adopt profile changes on their next sample.
+    ''' </summary>
+    Public Property Profile As DebugProfile
+        Get
+            Return _Profile
+        End Get
+        Set(value As DebugProfile)
+            _Profile = value
+            Select Case value
+                Case DebugProfile.NearInstant
+                    FramesPerSecond = 120
+                    ValueTimeline.MaximumSnapshotsPerValue = 4000
+                Case DebugProfile.Fast
+                    FramesPerSecond = 60
+                    ValueTimeline.MaximumSnapshotsPerValue = 2000
+                Case DebugProfile.Medium
+                    FramesPerSecond = 30
+                    ValueTimeline.MaximumSnapshotsPerValue = 1000
+                Case DebugProfile.Slow
+                    FramesPerSecond = 10
+                    ValueTimeline.MaximumSnapshotsPerValue = 500
+                Case DebugProfile.PowerSaving
+                    FramesPerSecond = 1
+                    ValueTimeline.MaximumSnapshotsPerValue = 250
+            End Select
+        End Set
+    End Property
+    Private _Profile As DebugProfile = DebugProfile.Fast
 
     Public Sub ForceInvoke(action As Action)
         Dim frame As DispatcherFrame = New DispatcherFrame()

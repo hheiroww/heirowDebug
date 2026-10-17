@@ -1,8 +1,8 @@
-﻿Imports System.ComponentModel
+Imports System.ComponentModel
 Imports System.Threading
 Imports System.Windows
-Imports JackDebug.WPF.Collections
-Imports JackDebug.WPF.States
+Imports heirowDebug.WPF.Collections
+Imports heirowDebug.WPF.States
 Imports SocketJack.Serialization
 
 Namespace Values
@@ -182,15 +182,19 @@ Namespace Values
             End Get
         End Property
 
-        Public Property Timecode As Integer
+        ''' <summary>
+        ''' Elapsed DateTime ticks since the first watcher was enabled.
+        ''' This must remain 64-bit: an Int32 wraps after roughly 3.6 minutes.
+        ''' </summary>
+        Public Property Timecode As Long
             Get
                 Return _Timecode
             End Get
-            Set(value As Integer)
+            Set(value As Long)
                 _Timecode = value
             End Set
         End Property
-        Private _Timecode As Integer
+        Private _Timecode As Long
 
 #End Region
 
@@ -215,7 +219,9 @@ Namespace Values
         ''' <returns>Default is 0.125 Seconds.</returns>
         Public Shared Property AutoIgnoreSlowTypesMaxTime As Double = 0.125
         Public Shared Property AutoIgnoreSlowTypes As Boolean = True
-        Public Shared Property IgnoreTypes As Type() = New Type() {GetType(Bitmap)}
+        ' Keep startup-hook injection independent from optional System.Drawing.Common.
+        ' Callers can still add expensive application-specific types explicitly.
+        Public Shared Property IgnoreTypes As Type() = Array.Empty(Of Type)()
         Public Shared Function NewFieldValue(Parent As DebugWatcher, FieldReference As FieldReference, Instance As Object, isRecursive As Boolean) As DebugValue
             Dim Start As DateTime = DateTime.UtcNow
             Dim SafeValue As New SafeValue(FieldReference.Info.GetValue(Instance))
@@ -245,10 +251,9 @@ Namespace Values
                 Out.KeyList = New ArrayList(dict.Keys)
                 Out.ValueList = New ArrayList(dict.Values)
             End If
-            If Not Flags.isSystem AndAlso Not Flags.isNothing Then
+            If isRecursive AndAlso Not Flags.isSystem AndAlso Not Flags.isNothing Then
                 ''' Child Watcher creation for types with fields/properties.
-                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
-                Flags.isChild = True
+                Flags.isChild = DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True) IsNot Nothing
             End If
             Return Out
         End Function
@@ -282,10 +287,9 @@ Namespace Values
                 Out.KeyList = New ArrayList(dict.Keys)
                 Out.ValueList = New ArrayList(dict.Values)
             End If
-            If Not Flags.isSystem AndAlso Not Flags.isNothing Then
+            If isRecursive AndAlso Not Flags.isSystem AndAlso Not Flags.isNothing Then
                 ''' Child Watcher creation for types with fields/properties.
-                DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True)
-                Flags.isChild = True
+                Flags.isChild = DebugWatcher.CreateChild(Parent, Out.Guid, CurrentValue, True) IsNot Nothing
             End If
             Return Out
         End Function
@@ -347,6 +351,12 @@ Namespace Values
                 Flags.isShapesRect = (t Is GetType(System.Windows.Shapes.Rectangle))
                 Flags.isWindowsRect = (t Is GetType(System.Windows.Rect))
                 Flags.isString = (t Is GetType(String)) AndAlso Not Flags.isNumeric
+                Flags.isEnum = t.IsEnum
+                Flags.isDateTime = (t Is GetType(DateTime))
+                Flags.isTimeSpan = (t Is GetType(TimeSpan))
+                Flags.isMediaColor = (t Is GetType(System.Windows.Media.Color))
+                Flags.isDrawingColor = (t Is GetType(System.Drawing.Color))
+                Flags.isThickness = (t Is GetType(System.Windows.Thickness))
                 Flags.isVector = (t Is GetType(System.Windows.Vector))
                 Flags.isDrawingSize = (t Is GetType(System.Drawing.Size))
                 Flags.isWindowsSize = (t Is GetType(System.Windows.Size))
@@ -360,6 +370,7 @@ Namespace Values
 
         Public Function UpdateValue(WorkerState As ValueWorkerState) As DebugValue
             Dim SafeValue As New SafeValue(Nothing)
+            Dim sampledAt As DateTime = DateTime.UtcNow
 
             If IsField AndAlso (Flags.isSystem OrElse Type.IsValueType) Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.GetValue(WorkerState.Instance))
@@ -373,22 +384,20 @@ Namespace Values
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.FieldType.Name & "*")
                 _FieldReference = WorkerState.Reference
                 _IsField = True
-                If Not DebugWatcher.Watchers.ContainsKey(Guid) Then
+                If WorkerState.Watcher.IsRecursive AndAlso Not WorkerState.Watcher.ChildWatcherValues.Contains(Guid) Then
                     Dim ActualValue As New SafeValue(DirectCast(WorkerState.Reference, FieldReference).Info.GetValue(WorkerState.Instance))
                     If Not ActualValue.IsNothing Then
-                        DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True)
-                        Flags.isChild = True
+                        Flags.isChild = DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True) IsNot Nothing
                     End If
                 End If
             ElseIf IsProperty AndAlso Not Flags.isSystem AndAlso Not Type.IsValueType Then
                 SafeValue = New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.PropertyType.Name & "*")
                 _PropertyReference = WorkerState.Reference
                 _IsProperty = True
-                If Not DebugWatcher.Watchers.ContainsKey(Guid) Then
+                If WorkerState.Watcher.IsRecursive AndAlso Not WorkerState.Watcher.ChildWatcherValues.Contains(Guid) Then
                     Dim ActualValue As New SafeValue(DirectCast(WorkerState.Reference, PropertyReference).Info.GetValue(WorkerState.Instance))
                     If Not ActualValue.IsNothing Then
-                        DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True)
-                        Flags.isChild = True
+                        Flags.isChild = DebugWatcher.CreateChild(WorkerState.Watcher, Guid, ActualValue.Value, True) IsNot Nothing
                     End If
                 End If
             End If
@@ -396,7 +405,9 @@ Namespace Values
             Dim CurrentValue = SafeValue.Value
             Dim ValueChanged As Boolean = False
 
+            Dim childWatcherExists = Flags.isChild OrElse WorkerState.Watcher.ChildWatcherValues.Contains(Guid)
             _Flags = GetTypeFlags(SafeValue, Type)
+            _Flags.isChild = childWatcherExists
             If Flags.isArray Then
                 Dim Results As ArrayCompareResults = CompareArray(CurrentValue, LastValue)
                 _ChangedIndexies = Results.ChangedIndexies
@@ -417,6 +428,7 @@ Namespace Values
 
             _LastValue = Value
             _Value = CurrentValue
+            _Timecode = Math.Max(0L, sampledAt.Ticks - DebugWatcher.FirstTimeEnabled.Ticks)
 
             If Flags.isDictionary AndAlso CurrentValue IsNot Nothing Then
                 Dim dict As IDictionary = DirectCast(CurrentValue, IDictionary)

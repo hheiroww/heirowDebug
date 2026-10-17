@@ -1,0 +1,23 @@
+<Application x:Class="heirowDebugInjector.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="PanelBrush" Color="#20252B" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#45C778" />
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="#08150D" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="16,9" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#171B20" />
+            <Setter Property="Foreground" Value="#F1F5F3" />
+            <Setter Property="BorderBrush" Value="#4A545E" />
+            <Setter Property="Padding" Value="8,6" />
+        </Style>
+    </Application.Resources>
+</Application>

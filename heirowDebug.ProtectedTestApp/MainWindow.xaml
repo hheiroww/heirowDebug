@@ -1,0 +1,58 @@
+<Window x:Class="heirowDebug.ProtectedTestApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="heirowDotNetShield Test Target"
+        Width="720" Height="470" MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0F17" Foreground="#F3F6FF">
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Protected test target" FontSize="28" FontWeight="Bold" />
+            <TextBlock Margin="0,5,0,0" Foreground="#A9B4CA" Text="Disposable WPF application - no production application data" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,24,0,0" Padding="18" CornerRadius="10"
+                Background="#131A27" BorderBrush="#2B3851" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Sensitive value storage" FontWeight="SemiBold" />
+                    <TextBlock x:Name="VaultStatusText" Margin="0,6,0,0" Foreground="#9EACBF" />
+                </StackPanel>
+                <Button x:Name="UseSecretButton" Grid.Column="1" Padding="16,9" Margin="20,0,0,0"
+                        Content="Use protected value" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Margin="0,14,0,0" Padding="18" CornerRadius="10"
+                Background="#131A27" BorderBrush="#2B3851" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Own-assembly reflection" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ReflectionStatusText" Margin="0,6,0,0" Foreground="#9EACBF" />
+                </StackPanel>
+                <Button x:Name="ReflectionButton" Grid.Column="1" Padding="16,9" Margin="20,0,0,0"
+                        Content="Run self-check" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Margin="0,14,0,0" Padding="18" CornerRadius="10"
+                Background="#10151F" BorderBrush="#273247" BorderThickness="1">
+            <TextBlock x:Name="ActivityText" Foreground="#BBC8DF" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</Window>

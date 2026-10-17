@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>heirowDebug.WPF</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <ImportedNamespaces>System.Drawing=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,heirowDebug=True</ImportedNamespaces>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <ApplicationIcon>Assets\heirowDebug.ico</ApplicationIcon>
+    <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
+    <Title>heirowDebug 2026 (WPF)</Title>
+    <Product>heirowDebug 2026</Product>
+    <Company>heirow</Company>
+    <Description>Live visual debugging for WPF applications with heirowDebug.</Description>
+    <PackageProjectUrl>https://socketjack.com/</PackageProjectUrl>
+    <PackageReleaseNotes>heirowDebug 2026: live WPF object inspection, startup-hook injection, bounded recursive sampling, configurable sampling profiles, and type-aware timeline visualizations.</PackageReleaseNotes>
+    <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
+    <Copyright>Copyright © heirow 2026</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/hheiroww/heirowDebug</RepositoryUrl>
+	  <IsPackable>True</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="favicon.ico" />
+    <Resource Include="Assets\heirowDebug.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="heirowDebug.Project-z\**" />
+    <EmbeddedResource Remove="heirowDebug.Project-z\**" />
+    <None Remove="heirowDebug.Project-z\**" />
+    <ApplicationDefinition Remove="heirowDebug.Injector\**\*.xaml" />
+    <Page Remove="heirowDebug.Injector\**\*.xaml" />
+    <None Remove="heirowDebug.Injector\**\*" />
+    <ApplicationDefinition Remove="heirowDebug.ProtectedTestApp\**\*.xaml" />
+    <Page Remove="heirowDebug.ProtectedTestApp\**\*.xaml" />
+    <None Remove="heirowDebug.ProtectedTestApp\**\*" />
+    <ApplicationDefinition Remove="heirowDotNetShield\**\*.xaml" />
+    <Page Remove="heirowDotNetShield\**\*.xaml" />
+    <None Remove="heirowDotNetShield\**\*" />
+    <None Remove="heirowDotNetShield.Launcher\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MahApps.Metro" Version="2.4.11" />
+    <PackageReference Include="SocketJack.WPF" Version="1.4.5" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Import Include="System.Drawing" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Compile Update="My Project\Resources.Designer.vb">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+	
+  <ItemGroup>
+    <EmbeddedResource Update="My Project\Resources.resx">
+      <CustomToolNamespace>My.Resources</CustomToolNamespace>
+      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+	
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

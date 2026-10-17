@@ -34,6 +34,18 @@
 
         Public Property isString As Boolean
 
+        Public Property isEnum As Boolean
+
+        Public Property isDateTime As Boolean
+
+        Public Property isTimeSpan As Boolean
+
+        Public Property isMediaColor As Boolean
+
+        Public Property isDrawingColor As Boolean
+
+        Public Property isThickness As Boolean
+
         Public Property isVector As Boolean
 
         Public Property isDrawingSize As Boolean
@@ -62,6 +74,12 @@
             isShapesRect = False
             isWindowsRect = False
             isString = False
+            isEnum = False
+            isDateTime = False
+            isTimeSpan = False
+            isMediaColor = False
+            isDrawingColor = False
+            isThickness = False
             isVector = False
             isDrawingSize = False
             isWindowsSize = False
@@ -77,6 +95,12 @@
                     isWindowsRect Or
                     isDrawingRectangle Or
                     isString Or
+                    isEnum Or
+                    isDateTime Or
+                    isTimeSpan Or
+                    isMediaColor Or
+                    isDrawingColor Or
+                    isThickness Or
                     isVector Or
                     isDrawingSize Or
                     isWindowsSize) AndAlso

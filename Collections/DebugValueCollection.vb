@@ -1,4 +1,4 @@
-﻿Imports JackDebug.WPF.Values
+Imports heirowDebug.WPF.Values
 Imports SocketJack.Serialization
 
 Namespace Collections

@@ -1,0 +1,89 @@
+<Window x:Class="heirowDebugInjector.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="heirowDebug" Icon="Assets/heirowDebug.ico" Height="590" Width="980"
+        MinHeight="500" MinWidth="760"
+        WindowStartupLocation="CenterScreen"
+        Background="#12161A" Foreground="#F1F5F3">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="Assets/heirowDebug.png" Width="52" Height="52" Margin="0,0,14,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="heirowDebug" FontSize="28" FontWeight="SemiBold" />
+                        <TextBlock Text="LIVE VISUAL DEBUGGER" Foreground="#62DCC8" FontSize="10" />
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Margin="0,5,0,0" Foreground="#AEB8B2"
+                           Text="Select a running WPF application, restart it with the managed hook, and open a live recursive watcher inside its process." />
+            </StackPanel>
+            <Button x:Name="RefreshButton" Grid.Column="1" Content="Refresh processes" Margin="18,2,0,2" Click="RefreshButton_Click" />
+        </Grid>
+
+        <Border Grid.Row="1" Margin="0,18,0,12" Padding="12,9" Background="#33261C" BorderBrush="#9A6938" BorderThickness="1" CornerRadius="4">
+            <TextBlock Foreground="#F3C58D" TextWrapping="Wrap"
+                       Text="Launch-time injection requires a restart. Save work in the selected application first; heirowDebug does not modify its source or application directory." />
+        </Border>
+
+        <DataGrid x:Name="ProcessGrid" Grid.Row="2" ItemsSource="{Binding Processes}" AutoGenerateColumns="False"
+                  IsReadOnly="True" SelectionMode="Single" SelectionChanged="ProcessGrid_SelectionChanged"
+                  Background="#171B20" Foreground="#F1F5F3" BorderBrush="#3B444D"
+                  RowBackground="#171B20" AlternatingRowBackground="#1D2329"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#303841">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Process" Binding="{Binding Name}" Width="170" />
+                <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80" />
+                <DataGridTextColumn Header="Window" Binding="{Binding WindowTitle}" Width="220" />
+                <DataGridTextColumn Header="Executable" Binding="{Binding ExecutablePath}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" Text="Preferred startup window (optional)" Margin="0,0,10,0" />
+            <Grid Grid.Column="1" MinWidth="280">
+                <TextBox x:Name="RootTypeTextBox"
+                         ToolTip="Leave empty to watch every live application window. A full or short Window type can be entered only to make it the first startup target; all other windows remain available." />
+                <TextBlock IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="#718079"
+                           Text="Watch all windows at runtime">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=RootTypeTextBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <CheckBox x:Name="RecursiveCheckBox" Grid.Column="2" IsChecked="False" Content="Auto-expand objects" VerticalAlignment="Center" Margin="18,0"
+                      ToolTip="Higher overhead. Leave off for large applications and add individual object watches from heirowDebug." />
+            <Button x:Name="InjectButton" Grid.Column="3" Content="Restart + inject" Click="InjectButton_Click" IsEnabled="False" />
+        </Grid>
+
+        <Border Grid.Row="4" Margin="0,14,0,0" Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="4">
+            <TextBlock x:Name="StatusText" Text="Refreshing accessible WPF processes..." TextWrapping="Wrap" Foreground="#C8D0CC" />
+        </Border>
+    </Grid>
+</Window>

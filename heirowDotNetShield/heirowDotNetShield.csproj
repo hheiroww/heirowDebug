@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>heirowDotNetShield</AssemblyName>
+    <RootNamespace>HeirowDotNetShield</RootNamespace>
+    <Product>heirowDotNetShield 2026</Product>
+    <Title>heirowDotNetShield 2026</Title>
+    <ApplicationIcon />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Obfuscar" Version="2.2.50" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ShieldLauncherPublishDir>$(MSBuildProjectDirectory)\obj\$(Configuration)\ShieldLauncher\</ShieldLauncherPublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe"
+          Link="ShieldLauncher\heirowDotNetShield.Launcher.exe"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(NuGetPackageRoot)obfuscar\2.2.50\tools\**\*"
+          Link="Obfuscar\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="BuildShieldLauncher" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="..\heirowDotNetShield.Launcher\heirowDotNetShield.Launcher.csproj"
+             Targets="Restore"
+             BuildInParallel="false"
+             Properties="RuntimeIdentifier=win-x64" />
+    <MSBuild Projects="..\heirowDotNetShield.Launcher\heirowDotNetShield.Launcher.csproj"
+             Targets="Publish"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;PublishDir=$(ShieldLauncherPublishDir)" />
+    <MakeDir Directories="$(TargetDir)ShieldLauncher" />
+    <Copy SourceFiles="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe"
+          DestinationFolder="$(TargetDir)ShieldLauncher" />
+  </Target>
+</Project>
