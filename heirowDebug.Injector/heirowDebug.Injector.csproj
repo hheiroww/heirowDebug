@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,12 +9,12 @@
     <RootNamespace>heirowDebugInjector</RootNamespace>
     <Product>heirowDebug 2026</Product>
     <Title>heirowDebug 2026</Title>
-    <ApplicationIcon>..\Assets\heirowDebug.ico</ApplicationIcon>
+    <ApplicationIcon>..\Assets\heirowDebug-Injector.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="..\Assets\heirowDebug.png" Link="Assets\heirowDebug.png" />
-    <Resource Include="..\Assets\heirowDebug.ico" Link="Assets\heirowDebug.ico" />
+    <Resource Include="..\Assets\heirowDebug-Injector.png" Link="Assets\heirowDebug-Injector.png" />
+    <Resource Include="..\Assets\heirowDebug-Injector.ico" Link="Assets\heirowDebug-Injector.ico" />
     <ProjectReference Include="..\heirowDebug.Injector.Hook\heirowDebug.Injector.Hook.csproj" />
   </ItemGroup>
 </Project>

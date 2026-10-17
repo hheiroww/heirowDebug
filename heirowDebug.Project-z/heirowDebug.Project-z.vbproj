@@ -2,9 +2,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>heirowDebug.ProjectZ</RootNamespace>
     <AssemblyName>heirowDebug.ProjectZ</AssemblyName>
+    <ApplicationIcon>..\Assets\heirowDebug-ProjectZ.ico</ApplicationIcon>
     <UseWindowsForms>True</UseWindowsForms>
     <UseWPF>True</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
@@ -21,6 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ProjectZ" Version="2026.10.17.1" />
+    <EmbeddedResource Include="..\Assets\heirowDebug-ProjectZ.ico" LogicalName="heirowDebug.ProjectZ.ico" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.vb" />

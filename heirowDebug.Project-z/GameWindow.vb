@@ -46,6 +46,15 @@ Partial Public Class GameWindow
         IsMouseVisible = True
         Content.RootDirectory = "Content"
 
+        Dim hostForm = TryCast(System.Windows.Forms.Control.FromHandle(Window.Handle), System.Windows.Forms.Form)
+        If hostForm IsNot Nothing Then
+            Using stream = GetType(GameWindow).Assembly.GetManifestResourceStream("heirowDebug.ProjectZ.ico")
+                Using icon As New System.Drawing.Icon(stream)
+                    hostForm.Icon = DirectCast(icon.Clone(), System.Drawing.Icon)
+                End Using
+            End Using
+        End If
+
     End Sub
 
 End Class

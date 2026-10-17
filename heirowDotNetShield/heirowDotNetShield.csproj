@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
@@ -10,10 +10,11 @@
     <RootNamespace>HeirowDotNetShield</RootNamespace>
     <Product>heirowDotNetShield 2026</Product>
     <Title>heirowDotNetShield 2026</Title>
-    <ApplicationIcon />
+    <ApplicationIcon>..\Assets\heirowDotNetShield.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="..\Assets\heirowDotNetShield.ico" Link="Assets\heirowDotNetShield.ico" />
     <PackageReference Include="Obfuscar" Version="2.2.50" />
   </ItemGroup>
 

@@ -1,18 +1,35 @@
-# heirowDebug 2026
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-logo.png" width="128" height="128" alt="heirowDebug logo">
+</p>
 
-**Version 2026.10.17.0** · Windows · .NET 8
+<h1 align="center">heirowDebug 2026</h1>
+
+<p align="center">
+  <strong>Live objects. Clear timelines. Visual debugging.</strong><br>
+  Version 2026.10.17.1 · Windows · .NET 10
+</p>
 
 heirowDebug is a live object value visualizer for WPF applications. Launch `heirowDebug.exe` to select an application to debug, or reference `heirowDebug.WPF` in your own application to watch objects directly. This is the 2026 release of the former Jack-Debug project.
 
 ## Download and build
 
-Get the Windows launcher and library package from [GitHub Releases](https://github.com/hheiroww/heirowDebug/releases). Extract the launcher archive before running `heirowDebug.exe`; keep its supporting DLLs beside it. The launcher requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) on Windows.
+Get version **2026.10.17.1** from [GitHub Releases](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.17.1). Windows x64 installers include .NET 10 and create branded Start menu shortcuts; desktop shortcuts are optional. Installation is per user and does not require administrator access.
 
-To build all projects, install the .NET 8 SDK or newer and Visual Studio's **Desktop development with C++** workload (required by the native heirowDotNetShield launcher), then run:
+| Software | Installer | Portable archive |
+| --- | --- | --- |
+| heirowDebug live debugger / injector | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-2026.10.17.1-windows-x64.zip) |
+| heirowDotNetShield protection tool | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDotNetShield-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDotNetShield-2026.10.17.1-windows-x64.zip) |
+| Project-Z starter sample | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-ProjectZ-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-ProjectZ-2026.10.17.1-windows-x64.zip) |
+
+Extract an entire portable ZIP before running its EXE. The native Shield launcher and all supporting files are included with Shield. The Project-Z download runs the included starter scene.
+
+For developers: download [heirowDebug.WPF.dll](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug.WPF.dll), [heirowDebug.Injector.Hook.dll](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug.Injector.Hook.dll), or the [NuGet package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug.WPF.2026.10.17.1.nupkg). The raw DLLs require a .NET 10 WPF host and their dependencies; using the package restores the WPF library dependencies automatically. The hook also needs the debugger DLL and the supporting DLLs from the debugger ZIP. `SHA256SUMS.txt` accompanies every release asset.
+
+To build all projects, install the .NET 10 SDK and Visual Studio 2026 with the **.NET desktop development** and **Desktop development with C++** workloads (the latter is required by the native heirowDotNetShield launcher), then run:
 
 ```powershell
 dotnet build .\heirowDebug.WPF.sln -c Release
-.\heirowDebug.Injector\bin\Release\net8.0-windows\heirowDebug.exe
+.\heirowDebug.Injector\bin\Release\net10.0-windows\heirowDebug.exe
 ```
 
 The solution also includes a [Project-Z sample](https://github.com/hheiroww/heirowDebug/blob/main/heirowDebug.Project-z/README.md), the heirowDotNetShield protection tool, and a disposable WPF validation application.
@@ -20,12 +37,14 @@ The solution also includes a [Project-Z sample](https://github.com/hheiroww/heir
 In Visual Studio, open `heirowDebug.WPF.sln` and set **heirowDebug.Injector** as the startup project if an existing user setting selects the WPF library. Use **Debug** or **Release** with **Any CPU**; the Project-Z sample and native protection launcher select x64 internally.
 
 
+Release packaging is reproducible with `tools/Build-Release.ps1 -IsccPath <path-to-ISCC.exe>` using Inno Setup 7. It builds the self-contained applications, branded installers, portable ZIPs, DLLs, NuGet package, and checksums. See [packaging/README.md](packaging/README.md) for validation and installation options.
+
 ## Setup
-Download `heirowDebug.WPF.2026.10.17.nupkg` from the release and place it in a local package folder such as `C:\Packages`. Register that folder once, then add the library to your application:
+Download `heirowDebug.WPF.2026.10.17.1.nupkg` from the release and place it in a local package folder such as `C:\Packages`. Register that folder once, then add the library to your application:
 
 ```powershell
 dotnet nuget add source C:\Packages --name heirowDebug-releases
-dotnet add package heirowDebug.WPF --version 2026.10.17.0
+dotnet add package heirowDebug.WPF --version 2026.10.17.1
 ```
 
 The renamed `heirowDebug.WPF` package is distributed with this GitHub release; it has not been published to nuget.org. Existing callers of `JackDebug.WPF` must update their package reference and imports to `heirowDebug.WPF`.
@@ -72,7 +91,9 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 ```
 
 ## Demo
-![Demo](https://raw.githubusercontent.com/hheiroww/heirowDebug/refs/heads/main/demo1100.gif)
+![Live .NET 10 debugger: numeric timelines, point trails, and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-live-demo.gif)
+
+An 8-second recording of the actual .NET 10 debugger watching changing telemetry, captured with [tools/LiveDemo](tools/LiveDemo). The optimized 760px GIF is **556 KB**, about 82% smaller than the previous demo; no video player is required.
 
 ## Inject into an existing WPF application build
 
@@ -94,15 +115,17 @@ does not require PDB files or other debug information.
 
 ```powershell
 dotnet build .\heirowDebug.WPF.sln -c Release
-.\heirowDebug.Injector\bin\Release\net8.0-windows\heirowDebug.exe
+.\heirowDebug.Injector\bin\Release\net10.0-windows\heirowDebug.exe
 ```
 
 The restart is required because this version uses .NET's supported launch-time
 hook rather than a native CLR profiler. Save work in the selected process first.
 The target executable and its source do not need to reference heirowDebug, and the
 injector does not copy files into the target application's directory.
-The target must be an accessible managed .NET WPF process that honors .NET
-startup hooks. Native applications, WinForms-only applications, elevated
+The target must be an accessible managed **.NET 10 WPF** process that honors .NET
+startup hooks. This version's .NET 10 hook cannot load into older runtimes; use
+the [2026.10.17.0 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.17.0)
+for .NET 8 hosts. Native applications, WinForms-only applications, elevated
 processes inaccessible to the injector, and legacy .NET Framework hosts are not
 made injectable by debug symbols alone.
 
@@ -148,7 +171,7 @@ diagnostic IPC channel before CoreCLR is loaded.
 
 ```powershell
 dotnet build .\heirowDotNetShield\heirowDotNetShield.csproj -c Release
-.\heirowDotNetShield\bin\Release\net8.0-windows\heirowDotNetShield.exe
+.\heirowDotNetShield\bin\Release\net10.0-windows\heirowDotNetShield.exe
 ```
 
 Select the application's main `.dll`, choose an empty output directory outside

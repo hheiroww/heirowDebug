@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>heirowDebug.WPF</RootNamespace>
     <UseWPF>true</UseWPF>
     <ImportedNamespaces>System.Drawing=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,heirowDebug=True</ImportedNamespaces>
@@ -13,7 +13,8 @@
     <Company>heirow</Company>
     <Description>Live visual debugging for WPF applications with heirowDebug.</Description>
     <PackageProjectUrl>https://socketjack.com/</PackageProjectUrl>
-    <PackageReleaseNotes>heirowDebug 2026: live WPF object inspection, startup-hook injection, bounded recursive sampling, configurable sampling profiles, and type-aware timeline visualizations.</PackageReleaseNotes>
+    <PackageReleaseNotes>heirowDebug 2026 on .NET 10: live WPF object inspection, startup-hook injection, bounded sampling, type-aware timelines, and branded self-contained Windows installers.</PackageReleaseNotes>
+    <PackageIcon>heirowDebug-logo.png</PackageIcon>
     <PackageTags>Debug; Debugging; Visual; Graphing; Graph; Variables; Variable; Runtime; Realtime; Live</PackageTags>
     <Copyright>Copyright © heirow 2026</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -46,7 +47,6 @@
   <ItemGroup>
     <PackageReference Include="MahApps.Metro" Version="2.4.11" />
     <PackageReference Include="SocketJack.WPF" Version="1.4.5" />
-    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
   </ItemGroup>
 	
   <ItemGroup>
@@ -70,6 +70,7 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <None Update="Assets\heirowDebug-logo.png" Pack="True" PackagePath="heirowDebug-logo.png" />
     <None Update="README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
