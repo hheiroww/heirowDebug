@@ -12,6 +12,7 @@ Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes
 $shell = New-Object -ComObject WScript.Shell
 $installed = [Collections.Generic.List[object]]::new()
 $results = [Collections.Generic.List[object]]::new()
+$ownedProcesses = [Collections.Generic.List[Diagnostics.Process]]::new()
 $products = @(
     @{ Folder='heirowDebug'; Name='heirowDebug 2026'; Id='heirow.heirowDebug'; Exe='heirowDebug.exe' },
     @{ Folder='heirowDotNetShield'; Name='heirowDotNetShield 2026'; Id='heirow.heirowDotNetShield'; Exe='heirowDotNetShield.exe' },
@@ -75,6 +76,7 @@ try {
             if ((Get-ItemProperty -LiteralPath $registry).DisplayIcon -notlike "*$($product.Exe)*") { throw 'Uninstall icon mismatch' }
         } elseif (Test-Path -LiteralPath (Join-Path $target 'unins000.exe')) { throw 'Portable mode created an uninstaller' }
         $app = Start-Process -FilePath (Join-Path $target $product.Exe) -PassThru
+        $ownedProcesses.Add($app)
         Wait-VisibleWindow $app
         Start-Sleep -Seconds 2
         $app.Refresh()
@@ -94,6 +96,7 @@ try {
     $start.Environment['heirowDebug_STATUS_FILE'] = $status
     $start.Environment['heirowDebug_RECURSIVE'] = '0'
     $injected = [Diagnostics.Process]::Start($start)
+    $ownedProcesses.Add($injected)
     $ready = $false
     for ($attempt=0; $attempt -lt 60; $attempt++) {
         Start-Sleep -Milliseconds 500
@@ -108,7 +111,7 @@ try {
     $condition = [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,$injected.Id)
     $windows = [Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,$condition)
     $titles = @($windows | ForEach-Object { $_.Current.Name })
-    if ($titles -notcontains 'heirowDebug') { throw 'The actual injected debugger window is missing' }
+    if (-not ($titles | Where-Object { $_ -like "heirowDebug - * (PID $($injected.Id))" })) { throw 'The actual injected debugger window is missing' }
     $results.Add(@{ injectionReady=$state.Trim(); windowTitles=$titles })
     Close-TestWindows $injected
 
@@ -125,6 +128,10 @@ try {
     $results | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $testRoot 'results.json')
     $results | ConvertTo-Json -Depth 6
 } finally {
+    foreach ($ownedProcess in $ownedProcesses) {
+        if (-not $ownedProcess.HasExited) { Close-TestWindows $ownedProcess }
+    }
+    $results | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $testRoot 'results.json')
     if ($Registered) {
         foreach ($installation in $installed) {
             $uninstaller = Join-Path $installation.Target 'unins000.exe'
