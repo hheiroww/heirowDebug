@@ -9,6 +9,24 @@
 *.Backup.tmp
 !Assets/*.ico
 /artifacts
+
+# Private assistant state, attachments, credentials, and local runtime data.
+.codex/
+.chatgpt/
+**/copilot-chat/
+codex-clipboard-*
+*.jsonl
+*.log
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
 /heirowDotNetShield/bin/Release/net8.0-windows
 /heirowDotNetShield/obj
 /heirowDotNetShield.Launcher/bin/Release

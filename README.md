@@ -36,6 +36,7 @@ The solution also includes a [Project-Z sample](https://github.com/hheiroww/heir
 
 In Visual Studio, open `heirowDebug.WPF.sln` and set **heirowDebug.Injector** as the startup project if an existing user setting selects the WPF library. Use **Debug** or **Release** with **Any CPU**; the Project-Z sample and native protection launcher select x64 internally.
 
+Brand artwork and application icon variants are documented in [Assets/README.md](https://github.com/hheiroww/heirowDebug/blob/main/Assets/README.md).
 
 Release packaging is reproducible with `tools/Build-Release.ps1 -IsccPath <path-to-ISCC.exe>` using Inno Setup 7. It builds the self-contained applications, branded installers, portable ZIPs, DLLs, NuGet package, and checksums. See [packaging/README.md](packaging/README.md) for validation and installation options.
 
