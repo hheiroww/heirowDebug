@@ -1,6 +1,6 @@
 # heirowDebug.ProjectZ
 
-<img src="https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/project-z-framework.png" width="96" alt="Project-Z framework logo">
+![Project-Z framework logo](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/project-z-framework.png)
 
 Native Project-Z live debugging for .NET 10 Windows applications. This package
 is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
@@ -8,7 +8,7 @@ launcher/injector and protection tool use Project-Z scenes and native controls.
 It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.20.1
+dotnet add package heirowDebug.ProjectZ --version 2026.10.20.2
 ```
 
 ```csharp

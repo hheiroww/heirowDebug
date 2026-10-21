@@ -1,22 +1,19 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-logo.png" width="128" height="128" alt="heirowDebug logo">
-</p>
+![heirowDebug logo](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-logo.png)
 
-<h1 align="center">heirowDebug 2026</h1>
+# heirowDebug 2026
 
-<p align="center">
-  <strong>Live objects. Clear timelines. Visual debugging.</strong><br>
-  Version 2026.10.20.1 · Windows · .NET 10
-</p>
+**Live objects. Clear timelines. Visual debugging.**
+
+Version 2026.10.20.2 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.20.1
+dotnet add package heirowDebug.WPF --version 2026.10.20.2
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.20.1
+dotnet add package heirowDebug.ProjectZ --version 2026.10.20.2
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
