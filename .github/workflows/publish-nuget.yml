@@ -27,7 +27,7 @@ jobs:
       - name: Validate core debugger behavior
         run: dotnet run --project tests/ProjectZ/ProjectZ.Tests.csproj -c Release
       - name: Build WPF and native Project-Z tools
-        run: dotnet build heirowDebug.WPF.sln -c Release -p:ContinuousIntegrationBuild=true -p:GeneratePackageOnBuild=false
+        run: dotnet build heirowDebug.WPF.sln -c Release -m:1 -p:ContinuousIntegrationBuild=true -p:GeneratePackageOnBuild=false
       - name: Pack both debugger libraries
         shell: pwsh
         run: ./tools/Pack-Debuggers.ps1

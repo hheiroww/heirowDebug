@@ -22,7 +22,7 @@
     <None Include="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe" Link="ShieldLauncher/heirowDotNetShield.Launcher.exe" CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
   <Target Name="BuildShieldLauncher" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
-    <MSBuild Projects="../heirowDotNetShield.Launcher/heirowDotNetShield.Launcher.csproj" Targets="Restore;Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(ShieldLauncherPublishDir)" />
+    <MSBuild Projects="../heirowDotNetShield.Launcher/heirowDotNetShield.Launcher.csproj" Targets="Restore;Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(ShieldLauncherPublishDir);BaseIntermediateOutputPath=$(ShieldLauncherPublishDir)intermediate/;BaseOutputPath=$(ShieldLauncherPublishDir)build/" />
     <MakeDir Directories="$(TargetDir)ShieldLauncher" />
     <Copy SourceFiles="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe" DestinationFolder="$(TargetDir)ShieldLauncher" />
   </Target>

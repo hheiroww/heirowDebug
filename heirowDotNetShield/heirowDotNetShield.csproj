@@ -36,11 +36,11 @@
     <MSBuild Projects="..\heirowDotNetShield.Launcher\heirowDotNetShield.Launcher.csproj"
              Targets="Restore"
              BuildInParallel="false"
-             Properties="RuntimeIdentifier=win-x64" />
+             Properties="RuntimeIdentifier=win-x64;BaseIntermediateOutputPath=$(ShieldLauncherPublishDir)intermediate\;BaseOutputPath=$(ShieldLauncherPublishDir)build\" />
     <MSBuild Projects="..\heirowDotNetShield.Launcher\heirowDotNetShield.Launcher.csproj"
              Targets="Publish"
              BuildInParallel="false"
-             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;PublishDir=$(ShieldLauncherPublishDir)" />
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(ShieldLauncherPublishDir);BaseIntermediateOutputPath=$(ShieldLauncherPublishDir)intermediate\;BaseOutputPath=$(ShieldLauncherPublishDir)build\" />
     <MakeDir Directories="$(TargetDir)ShieldLauncher" />
     <Copy SourceFiles="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe"
           DestinationFolder="$(TargetDir)ShieldLauncher" />
