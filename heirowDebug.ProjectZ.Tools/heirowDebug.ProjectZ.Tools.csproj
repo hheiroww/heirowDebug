@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>heirowDebug.ProjectZ.Tools</AssemblyName>
+    <ApplicationIcon>../Assets/project-z-framework.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../heirowDebug.ProjectZ/heirowDebug.ProjectZ.csproj" />
+    <ProjectReference Include="../heirowDebug.ProjectZ.Hook/heirowDebug.ProjectZ.Hook.csproj" />
+    <Compile Include="../heirowDotNetShield/ShieldService.cs" Link="Protection/ShieldService.cs" />
+    <PackageReference Include="Obfuscar" Version="2.2.50" />
+    <None Include="$(NuGetPackageRoot)obfuscar/2.2.50/tools/**/*" Link="Obfuscar/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <PropertyGroup>
+    <ShieldLauncherPublishDir>$(MSBuildProjectDirectory)/obj/$(Configuration)/ShieldLauncher/</ShieldLauncherPublishDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe" Link="ShieldLauncher/heirowDotNetShield.Launcher.exe" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <Target Name="BuildShieldLauncher" BeforeTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="../heirowDotNetShield.Launcher/heirowDotNetShield.Launcher.csproj" Targets="Restore;Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(ShieldLauncherPublishDir)" />
+    <MakeDir Directories="$(TargetDir)ShieldLauncher" />
+    <Copy SourceFiles="$(ShieldLauncherPublishDir)heirowDotNetShield.Launcher.exe" DestinationFolder="$(TargetDir)ShieldLauncher" />
+  </Target>
+</Project>

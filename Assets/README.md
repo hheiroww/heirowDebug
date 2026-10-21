@@ -1,5 +1,10 @@
 # heirow brand artwork
 
+The native Project-Z suite now uses `project-z-framework.png` and
+`project-z-framework.ico`. Its original transparent master, reproducible export
+script and provenance are documented in `project-z-framework-branding.md`.
+The previous cube variant remains preserved below.
+
 Created with an image generation tool. The original brand artwork is preserved as
 `heirowDebug.png` with its matching multi-resolution `heirowDebug.ico`.
 

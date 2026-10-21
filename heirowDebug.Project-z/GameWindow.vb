@@ -30,7 +30,7 @@ Partial Public Class GameWindow
 
     Public Sub New()
         MyBase.New()
-        Window.Title = "heirowDebug 2026 - Project-Z sample"
+        Window.Title = "heirowDebug - Project-Z live debugger demo"
 
         ' Set XNA Window Properties
         Size = New Point(800, 600)

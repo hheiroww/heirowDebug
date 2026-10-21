@@ -16,7 +16,7 @@ $ownedProcesses = [Collections.Generic.List[Diagnostics.Process]]::new()
 $products = @(
     @{ Folder='heirowDebug'; Name='heirowDebug 2026'; Id='heirow.heirowDebug'; Exe='heirowDebug.exe' },
     @{ Folder='heirowDotNetShield'; Name='heirowDotNetShield 2026'; Id='heirow.heirowDotNetShield'; Exe='heirowDotNetShield.exe' },
-    @{ Folder='heirowDebug-ProjectZ'; Name='heirowDebug Project-Z Sample'; Id='heirow.heirowDebug.ProjectZ'; Exe='heirowDebug.ProjectZ.exe' }
+    @{ Folder='heirowDebug-ProjectZ'; Name='heirowDebug Project-Z'; Id='heirow.heirowDebug.ProjectZ'; Exe='heirowDebug.ProjectZ.Tools.exe' }
 )
 function Invoke-CheckedProcess([string]$File, [string[]]$Arguments) {
     $process = Start-Process -FilePath $File -ArgumentList $Arguments -WindowStyle Hidden -PassThru

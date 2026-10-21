@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>heirowDebug.ProjectZ</PackageId>
+    <Description>Native Project-Z live object inspection, editing, typed timelines and bounded scene-thread sampling.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>project-z-framework.png</PackageIcon>
+    <RepositoryUrl>https://github.com/hheiroww/heirowDebug</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/hheiroww/heirowDebug</PackageProjectUrl>
+    <PackageTags>ProjectZ;debugger;inspection;timeline;native</PackageTags>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <!-- ProjectZ supplies its own runtime payload transitively. Keep this package
+         focused on the debugger assembly, readme and branding. -->
+    <Content><Pack>false</Pack></Content>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <PackageReference Include="ProjectZ" Version="$(ProjectZVersion)" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../Assets/project-z-framework.png" Pack="true" PackagePath="/" />
+    <EmbeddedResource Include="../Assets/project-z-framework.ico" LogicalName="heirowDebug.ProjectZ.ico" />
+  </ItemGroup>
+</Project>

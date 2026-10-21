@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <Compile Remove="heirowDebug.Project-z\**" />
+    <Compile Remove="tests\**" />
+    <None Remove="heirowDebug.ProjectZ\**;heirowDebug.ProjectZ.Tools\**;heirowDebug.ProjectZ.Hook\**;tests\**" />
     <EmbeddedResource Remove="heirowDebug.Project-z\**" />
     <None Remove="heirowDebug.Project-z\**" />
     <ApplicationDefinition Remove="heirowDebug.Injector\**\*.xaml" />

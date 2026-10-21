@@ -14,7 +14,7 @@ $compiler = (Get-Command $IsccPath -ErrorAction Stop).Source
 $products = @(
     @{ Folder='heirowDebug'; Name='heirowDebug 2026'; Id='heirow.heirowDebug'; Project='heirowDebug.Injector\heirowDebug.Injector.csproj'; Exe='heirowDebug.exe'; Icon='heirowDebug-Injector.ico' },
     @{ Folder='heirowDotNetShield'; Name='heirowDotNetShield 2026'; Id='heirow.heirowDotNetShield'; Project='heirowDotNetShield\heirowDotNetShield.csproj'; Exe='heirowDotNetShield.exe'; Icon='heirowDotNetShield.ico' },
-    @{ Folder='heirowDebug-ProjectZ'; Name='heirowDebug Project-Z Sample'; Id='heirow.heirowDebug.ProjectZ'; Project='heirowDebug.Project-z\heirowDebug.Project-z.vbproj'; Exe='heirowDebug.ProjectZ.exe'; Icon='heirowDebug-ProjectZ.ico' }
+    @{ Folder='heirowDebug-ProjectZ'; Name='heirowDebug Project-Z'; Id='heirow.heirowDebug.ProjectZ'; Project='heirowDebug.ProjectZ.Tools\heirowDebug.ProjectZ.Tools.csproj'; Exe='heirowDebug.ProjectZ.Tools.exe'; Icon='project-z-framework.ico' }
 )
 foreach ($product in $products) {
     $publish = Join-Path $payloadRoot $product.Folder
@@ -36,6 +36,8 @@ foreach ($dll in @('heirowDebug.WPF.dll', 'heirowDebug.Injector.Hook.dll')) {
 }
 & dotnet pack (Join-Path $repo 'heirowDebug.WPF.vbproj') -c Release -o $OutputDirectory -p:ContinuousIntegrationBuild=true -p:DebugType=None -p:DebugSymbols=false
 if ($LASTEXITCODE -ne 0) { throw 'Library packaging failed' }
+& dotnet pack (Join-Path $repo 'heirowDebug.ProjectZ\heirowDebug.ProjectZ.csproj') -c Release -o $OutputDirectory -p:ContinuousIntegrationBuild=true -p:DebugType=None -p:DebugSymbols=false
+if ($LASTEXITCODE -ne 0) { throw 'Project-Z library packaging failed' }
 $checksums = Get-ChildItem -LiteralPath $OutputDirectory -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $($_.Name)"
