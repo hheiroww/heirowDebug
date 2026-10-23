@@ -1,19 +1,10 @@
-# Windows releases
+# Windows installation
 
-Run from the repository root with .NET 10 SDK, Visual Studio's .NET desktop and
-C++ workloads, and Inno Setup 7's compiler:
-
-```powershell
-./tools/Build-Release.ps1 -IsccPath 'C:\Path\To\Inno Setup 7\ISCC.exe'
-```
-
-The version comes from `Directory.Build.props`. Each application is published
-self-contained for Windows x64, without trimming. Outputs go to
-`artifacts/release-<version>` and publish payloads to `artifacts/publish-<version>`.
-Existing payload directories are rejected so stale files cannot enter a release.
-Use a fresh version or archive the exact previous payload directory before
-rebuilding. The native launcher is bundled inside Shield, and the protected test
-application is a validation fixture rather than a downloadable product.
+Download a Windows x64 installer or portable ZIP from
+[GitHub Releases](https://github.com/hheiroww/heirowDebug/releases).
+The applications include their .NET runtime. The native launcher is bundled
+inside Shield, and the protected test application is a validation fixture rather
+than a downloadable product.
 
 Normal installers register per-user uninstall entries and create Start menu
 shortcuts under **heirow**. The optional desktop shortcuts, installer windows,
@@ -32,14 +23,6 @@ the extracted application's real UI as well as byte-for-byte payload hashes.
 For the registered installation path, verify Start menu and optional desktop
 shortcuts resolve to the installed EXE and its embedded product icon; uninstall
 the test installation normally afterward.
-
-`./tools/Test-Release.ps1` automates portable extraction, payload hash comparison,
-real UI launch/close for each application, startup-hook injection into the .NET 10
-fixture, and a protected-app self-test using the extracted Shield. Build the
-solution in Release first to produce that fixture. Add `-Registered` to test real
-per-user installation, Start menu and desktop shortcut icons, uninstall
-registration, and normal uninstallation. Registered validation refuses to run
-over any existing product installation or shortcut.
 
 `SHA256SUMS.txt` covers the three EXE installers, three portable ZIPs, two raw
 library DLLs, and NuGet package. Third-party assemblies remain beside the apps;

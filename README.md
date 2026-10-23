@@ -4,16 +4,16 @@
 
 **Live objects. Clear timelines. Visual debugging.**
 
-Version 2026.10.20.2 · Windows · .NET 10
+Version 2026.10.23.1 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.20.2
+dotnet add package heirowDebug.WPF --version 2026.10.23.1
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.20.2
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.1
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
@@ -23,22 +23,14 @@ scene sample. See [Project-Z integration and behavior](heirowDebug.ProjectZ/READ
 
 ```powershell
 dotnet run --project heirowDebug.ProjectZ.Tools -c Release
-./tools/Test-ProjectZ.ps1 -Runtime
-./tools/Pack-Debuggers.ps1
 ```
 
 Sampling and edits run on the owning scene thread when the watcher is attached
 with `AttachScene(scene)`. Reflection, history retention and recursive expansion
 are bounded. XNA points, vectors, rectangles and colors have native visualizations.
 
-The `publish-nuget.yml` workflow builds and validates both packages on pushes and
-pull requests. Publishing runs on a published GitHub release or a manual run with
-`publish=true`, using NuGet Trusted Publishing. Configure the NuGet policy for
-owner `hheiroww`, repository `heirowDebug`, workflow `publish-nuget.yml`, with only
-`heirowDebug.WPF` and `heirowDebug.ProjectZ` as its package scopes. Its default
-NuGet account is `Pathogenix`; the `NUGET_USER` repository variable overrides it.
-No API key belongs in source or workflow files. New package versions require a
-version change in `Directory.Build.props`.
+Get the libraries from NuGet: [heirowDebug.WPF](https://www.nuget.org/packages/heirowDebug.WPF/)
+and [heirowDebug.ProjectZ](https://www.nuget.org/packages/heirowDebug.ProjectZ/).
 
 The installer links below are the previous **2026.10.17.1** standalone release.
 
@@ -69,14 +61,13 @@ In Visual Studio, open `heirowDebug.WPF.sln` and set **heirowDebug.Injector** as
 
 Brand artwork and application icon variants are documented in [Assets/README.md](https://github.com/hheiroww/heirowDebug/blob/main/Assets/README.md).
 
-Release packaging is reproducible with `tools/Build-Release.ps1 -IsccPath <path-to-ISCC.exe>` using Inno Setup 7. It builds the self-contained applications, branded installers, portable ZIPs, DLLs, NuGet package, and checksums. See [packaging/README.md](packaging/README.md) for validation and installation options.
+See [Windows installation options](packaging/README.md) for installer and portable usage.
 
 ## Setup
-Download `heirowDebug.WPF.2026.10.17.1.nupkg` from the release and place it in a local package folder such as `C:\Packages`. Register that folder once, then add the library to your application:
+Add the library to your WPF application from NuGet:
 
 ```powershell
-dotnet nuget add source C:\Packages --name heirowDebug-releases
-dotnet add package heirowDebug.WPF --version 2026.10.17.1
+dotnet add package heirowDebug.WPF --version 2026.10.23.1
 ```
 
 The older `2026.10.17.1` package is distributed with that GitHub release. Current package instructions are listed above. Existing callers of `JackDebug.WPF` must update their package reference and imports to `heirowDebug.WPF`.

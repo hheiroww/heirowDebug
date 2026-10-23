@@ -1,4 +1,4 @@
-; Build through tools/Build-Release.ps1; every product supplies its own icon.
+; Supply product-specific installer definitions and an icon at compile time.
 [Setup]
 AppId={#ProductId}
 AppName={#ProductName}

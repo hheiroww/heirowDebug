@@ -30,7 +30,28 @@ jobs:
         run: dotnet build heirowDebug.WPF.sln -c Release -m:1 -p:ContinuousIntegrationBuild=true -p:GeneratePackageOnBuild=false
       - name: Pack both debugger libraries
         shell: pwsh
-        run: ./tools/Pack-Debuggers.ps1
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($project in @('heirowDebug.WPF.vbproj', 'heirowDebug.ProjectZ/heirowDebug.ProjectZ.csproj')) {
+            dotnet pack $project -c Release -o artifacts/nuget -p:ContinuousIntegrationBuild=true -p:GeneratePackageOnBuild=false -p:DebugType=None -p:DebugSymbols=false
+            if ($LASTEXITCODE -ne 0) { throw "Pack failed: $project" }
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $version = ([xml](Get-Content Directory.Build.props -Raw)).Project.PropertyGroup.Version
+          foreach ($id in @('heirowDebug.WPF', 'heirowDebug.ProjectZ')) {
+            $package = "artifacts/nuget/$id.$version.nupkg"
+            $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path $PWD $package))
+            try {
+              $names = @($zip.Entries.FullName)
+              if (-not ($names -match "^lib/.+/$([regex]::Escape($id)).dll$")) { throw "Library missing in $id" }
+              if ($names -match '(?i)(^|/)(\.vs|obj|bin|artifacts|\.codex|\.chatgpt)/|\.(jsonl|log|ps1|pfx|p12|pem|key)$|clipboard') { throw "Forbidden package entry in $id" }
+              if (-not ($names -contains 'README.md')) { throw "Readme missing in $id" }
+              $reader = [IO.StreamReader]::new($zip.GetEntry('README.md').Open())
+              try { $readme = $reader.ReadToEnd() } finally { $reader.Dispose() }
+              if ($readme -match '(?i)\.ps1\b|publish-nuget|NUGET_USER|trusted publishing|publishing setup') { throw "Internal publishing details in $id readme" }
+            }
+            finally { $zip.Dispose() }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: debugger-nuget
@@ -51,7 +72,7 @@ jobs:
       - uses: NuGet/login@v1
         id: login
         with:
-          user: ${{ vars.NUGET_USER || 'Pathogenix' }}
+          user: ${{ vars.NUGET_USER }}
       - name: Publish heirowDebug.WPF and heirowDebug.ProjectZ
         shell: pwsh
         env:

@@ -8,7 +8,7 @@ launcher/injector and protection tool use Project-Z scenes and native controls.
 It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.20.2
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.1
 ```
 
 ```csharp
@@ -68,5 +68,11 @@ own runtime. The debugger ships that executable intact. A self-contained tools
 publish includes the application's runtime as well; neither requires installing
 the .NET 8 desktop runtime separately.
 
-See `tools/Test-ProjectZ.ps1` for core and real native-window checks and the root
-README for package publishing setup.
+Run the core checks from a source checkout:
+
+```powershell
+dotnet run --project tests/ProjectZ/ProjectZ.Tests.csproj -c Release
+```
+
+See the [project documentation](https://github.com/hheiroww/heirowDebug) for the
+WPF debugger, native tools and Windows downloads.
