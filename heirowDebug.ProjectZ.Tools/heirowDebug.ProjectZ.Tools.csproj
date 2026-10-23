@@ -9,6 +9,10 @@
     <ApplicationIcon>../Assets/project-z-framework.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../heirowDebug.Injector/MainWindow.xaml" LogicalName="Injector.MainWindow.xaml" />
+    <EmbeddedResource Include="../heirowDebug.Injector/App.xaml" LogicalName="Injector.App.xaml" />
+    <EmbeddedResource Include="../Assets/heirowDebug-Injector.ico" LogicalName="Injector.ico" />
+    <None Include="../Assets/heirowDebug-Injector.png" Link="Assets/heirowDebug-Injector.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../heirowDebug.ProjectZ/heirowDebug.ProjectZ.csproj" />
     <ProjectReference Include="../heirowDebug.ProjectZ.Hook/heirowDebug.ProjectZ.Hook.csproj" />
     <Compile Include="../heirowDotNetShield/ShieldService.cs" Link="Protection/ShieldService.cs" />

@@ -24,7 +24,9 @@ internal static class Program
                 var target = InjectorService.GetProjectZProcesses().Single(p => p.Id == int.Parse(pid, System.Globalization.CultureInfo.InvariantCulture));
                 var result = InjectorService.RestartAndInjectAsync(target).GetAwaiter().GetResult(); File.WriteAllText(resultPath, result); return 0;
             }
-            using var app = new ToolWindow(); app.Run(); return 0;
+            if (args is ["--ui-check", var checkPath]) { using var check = new ToolWindow(checkPath); check.Run(); return 0; }
+            using NativeWindow app = args is ["--protect-ui"] ? new CompanionWindow() : args is ["--demo"] ? new CompanionWindow(true) : new ToolWindow();
+            app.Run(); return 0;
         }
         catch (Exception ex)
         {
@@ -35,67 +37,26 @@ internal static class Program
     }
 }
 
-sealed class ToolWindow : NativeWindow
+sealed class CompanionWindow : NativeWindow
 {
     readonly List<SceneElement> page = new();
     TextElement status = null!;
-    IReadOnlyList<ProjectZProcessInfo> processes = [];
-    int selected;
     bool busy;
-    bool recursive;
-    public ToolWindow() : base("heirowDebug Project-Z tools", 1120, 760)
+    public CompanionWindow(bool demo = false) : base("heirowDebug Project-Z tools", 1120, 760)
     {
         Ready += () =>
         {
             Label("heirowDebug / Project-Z", 28, 20, 700, 22);
             Label("Live inspection, launch-time injection and offline build protection", 30, 66, 1000, 12);
-            Button("Launch + inject", 30, 108, 180, InjectorPage);
+            Button("Launch + inject", 30, 108, 180, () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true }));
             Button("Protect a build", 225, 108, 180, ProtectionPage);
             Button("Live debugger demo", 420, 108, 200, Demo);
-            status = Label("Ready", 30, 705, 1050, 11); InjectorPage();
+            status = Label("Ready", 30, 705, 1050, 11); if (demo) Demo(); else ProtectionPage();
         };
     }
     T OnPage<T>(T control) where T : SceneElement { page.Add(control); return control; }
     void ClearPage() { foreach (var item in page) { Scene.RemoveElement(item); item.Dispose(); } page.Clear(); }
     void Status(string text) => Pending.Enqueue(() => status.Text = text);
-    void InjectorPage()
-    {
-        if (busy) return; ClearPage();
-        OnPage(Label("Restart a running Project-Z application with the managed debugger hook", 30, 165, 1020, 15));
-        OnPage(Label("Save work in the selected application before restarting it.", 30, 205, 1000));
-        var list = OnPage(Label("", 30, 255, 1030, 12)); list.Size = new(1030, 230);
-        var selection = OnPage(Label("No process selected", 30, 500, 1030));
-        async void Refresh()
-        {
-            busy = true; Status("Discovering accessible Project-Z processes…");
-            try
-            {
-                var found = await Task.Run(InjectorService.GetProjectZProcesses);
-                Pending.Enqueue(() =>
-                {
-                    processes = found; selected = 0;
-                    list.Text = string.Join(Environment.NewLine, found.Take(9).Select((p, i) => $"{i + 1}. {p.Name}  |  PID {p.Id}  |  {p.WindowTitle}"));
-                    selection.Text = processes.FirstOrDefault()?.ToString() ?? "No accessible Project-Z process is running.";
-                    busy = false; status.Text = $"Found {found.Count} Project-Z processes.";
-                });
-            }
-            catch (Exception ex) { Status(ex.Message); busy = false; }
-        }
-        OnPage(Button("Refresh processes", 30, 550, 180, Refresh));
-        OnPage(Button("Next process", 225, 550, 150, () => { if (processes.Count > 0) selection.Text = processes[selected = (selected + 1) % processes.Count].ToString(); }));
-        OnPage(Button("Auto-expand objects", 390, 550, 205, () => { recursive = !recursive; status.Text = "Recursive watches: " + recursive; }));
-        OnPage(Button("Restart + inject", 610, 550, 200, async () =>
-        {
-            if (busy || processes.Count == 0) return;
-            var target = processes[selected];
-            if (System.Windows.Forms.MessageBox.Show($"Restart {target.Name} (PID {target.Id}) and open heirowDebug?\n\nSave work in that application first.", "Restart + inject", System.Windows.Forms.MessageBoxButtons.OKCancel) != System.Windows.Forms.DialogResult.OK) return;
-            busy = true;
-            try { Status(await InjectorService.RestartAndInjectAsync(target, recursive, new Progress<string>(Status))); }
-            catch (Exception ex) { Status("Injection failed: " + ex.Message); }
-            finally { busy = false; }
-        }));
-        Refresh();
-    }
     void ProtectionPage()
     {
         if (busy) return; ClearPage();

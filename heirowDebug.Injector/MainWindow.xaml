@@ -54,16 +54,19 @@
 
         <Grid Grid.Row="3" Margin="0,14,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock VerticalAlignment="Center" Text="Preferred startup window (optional)" Margin="0,0,10,0" />
-            <Grid Grid.Column="1" MinWidth="280">
+            <Grid MinWidth="180">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Preferred startup window (optional)" Margin="0,0,0,5" />
                 <TextBox x:Name="RootTypeTextBox"
+                         Grid.Row="1"
                          ToolTip="Leave empty to watch every live application window. A full or short Window type can be entered only to make it the first startup target; all other windows remain available." />
-                <TextBlock IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="#718079"
+                <TextBlock x:Name="RootTypePlaceholder" Grid.Row="1" IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="#718079"
                            Text="Watch all windows at runtime">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -77,9 +80,11 @@
                     </TextBlock.Style>
                 </TextBlock>
             </Grid>
-            <CheckBox x:Name="RecursiveCheckBox" Grid.Column="2" IsChecked="False" Content="Auto-expand objects" VerticalAlignment="Center" Margin="18,0"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+            <CheckBox x:Name="RecursiveCheckBox" IsChecked="False" Content="Auto-expand objects" VerticalAlignment="Center" Margin="18,0"
                       ToolTip="Higher overhead. Leave off for large applications and add individual object watches from heirowDebug." />
-            <Button x:Name="InjectButton" Grid.Column="3" Content="Restart + inject" Click="InjectButton_Click" IsEnabled="False" />
+            <Button x:Name="InjectButton" Content="Restart + inject" Click="InjectButton_Click" IsEnabled="False" />
+            </StackPanel>
         </Grid>
 
         <Border Grid.Row="4" Margin="0,14,0,0" Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="4">

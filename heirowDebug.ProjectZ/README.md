@@ -47,14 +47,28 @@ Build and launch the native tools:
 dotnet run --project heirowDebug.ProjectZ.Tools -c Release
 ```
 
+The injector renders the WPF injector's shared XAML with native Project-Z
+controls. Select a process directly in the Process/PID/Window/Executable table;
+mouse, keyboard selection and scrolling are supported. Refresh preserves the
+selected process. The window uses 16x anti-aliasing and 16x anisotropic filtering.
+The protection tool and telemetry demo can be opened with `--protect-ui` and
+`--demo`, respectively.
+
 The launcher finds accessible running Project-Z processes and restarts a selected
 application with `heirowDebug.ProjectZ.Hook`. Save work before confirming a restart.
+If an application hides to its tray instead of exiting after a normal close,
+the injector preserves it and opens a separate debug instance.
 The startup hook discovers live application roots without PDBs, then creates the
 debugger on the target scene thread. Static property getters run only when a watch
 is added or sampled, never while browsing. Applications with private roots can
 register them with `RootDiscovery.Register(scene)` and unregister at shutdown.
 The hook supports .NET 10 hosts that allow startup hooks; protected/native hosts
 and older managed runtimes are outside this hook's contract.
+
+Automatic discovery reads the live MonoGame game and native windows before
+scanning application types, so large applications and games held only in local
+variables remain discoverable. The hook uses the target's own loaded framework
+and renderer, including dependencies loaded from a bundle or by Fody/Costura.
 
 The protection page uses the same `ShieldService` and native pre-runtime launcher
 as the WPF tool: copy a deployment, obfuscate private names/strings, remove PDBs,

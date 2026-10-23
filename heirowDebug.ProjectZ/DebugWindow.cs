@@ -18,7 +18,7 @@ public sealed class DebugWindow : IDisposable
     Scene.FrameUpdatedEventHandler? pump;
     volatile bool closeRequested;
     bool pumping;
-    readonly List<SceneElement> rows = new();
+    readonly List<TextElement> rows = new();
     readonly List<(DebugWatcher Owner, DebugValue? Value)> rowTargets = new();
     readonly HashSet<string> expanded = new();
     readonly List<global::ProjectZ.Shared.Drawing.UI.Input.Button> actionButtons = new();
@@ -40,7 +40,7 @@ public sealed class DebugWindow : IDisposable
     bool enabled = true;
     public bool Enabled { get => enabled; set { enabled = value; foreach (var watcher in DebugWatcher.Watchers.Values) watcher.isEnabled = value; } }
     public string Title { get; set; } = $"heirowDebug Project-Z – {System.Diagnostics.Process.GetCurrentProcess().ProcessName} (PID {Environment.ProcessId})";
-    public bool IsVisible => window is { Closed: false };
+    public bool IsVisible => window is { Closed: false, IsWindowVisible: true };
     public IntPtr Handle => window is null || window.Closed ? IntPtr.Zero : global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(window);
     public DebugValue? SelectedValue => selected;
     public void SaveFrame(string path) => (window ?? throw new InvalidOperationException("Open the debugger first.")).SaveFrame(path);
@@ -53,7 +53,7 @@ public sealed class DebugWindow : IDisposable
         hostScene = DebugWatcher.Watchers.Values.Select(w => w.OwnerScene).FirstOrDefault(s => s is not null);
         if (hostScene is not null)
         {
-            window = MakeWindow(); window.RunOneFrame();
+            window = MakeWindow(); window.RunOneFrame(); window.ShowNativeWindow();
             pump = _ =>
             {
                 if (pumping) return; pumping = true;
@@ -134,6 +134,7 @@ public sealed class DebugWindow : IDisposable
         float left = treeWidth + 15, width = Math.Max(200, w.Width - left - 20);
         plot.Position = new(left, 102); plot.Size = new(width, Math.Max(100, w.Height - 282));
         title.Position = new(left, 16); summary.Position = new(left, 44);
+        title.Size = new(width, 32); summary.Size = new(width, 28);
         edit.Position = new(left, w.Height - 163); edit.Size = new(width, 30);
         float actionX = left;
         foreach (var button in actionButtons) { button.Position = new(actionX, w.Height - 120); button.Size = new(Math.Min(button.Size.X, width / 3 - 8), 30); actionX += button.Size.X + 10; }
@@ -160,7 +161,7 @@ public sealed class DebugWindow : IDisposable
     void RefreshRows()
     {
         if (window is null || filter is null) return;
-        foreach (var row in rows) { window.Scene.RemoveElement(row); row.Dispose(); } rows.Clear(); rowTargets.Clear();
+        rowTargets.Clear();
         var all = new List<(DebugWatcher Owner, DebugValue? Value, int Depth, string Text)>();
         foreach (var watcher in DebugWatcher.Watchers.Values.Where(w => !w.isChild)) AppendWatcher(watcher);
         void AppendWatcher(DebugWatcher watcher)
@@ -175,22 +176,39 @@ public sealed class DebugWindow : IDisposable
         }
         scroll = Math.Clamp(scroll, 0, Math.Max(0, all.Count - 1));
         int available = Math.Max(1, (window.Height - 152) / 25);
-        foreach (var entry in all.Skip(scroll).Take(available))
+        var visible = all.Skip(scroll).Take(available).ToArray();
+        for (int rowIndex = 0; rowIndex < visible.Length; rowIndex++)
         {
-            int rowIndex = rows.Count; float x = 12 + Math.Min(entry.Depth, 4) * 12, y = 102 + rowIndex * 25;
-            var row = new TextElement(window.Scene) { Text = entry.Value is null ? entry.Text : "+ " + entry.Text, Position = new(x, y), Size = new(treeWidth - x - 6, 24), Font = global::ProjectZ.Shared.Content.Fonts.SegoeUI.get_GetResourceName(10), ForegroundColor = entry.Value == selected ? new Color(84, 218, 195) : entry.Value is null ? Color.White : new Color(183, 199, 211) };
-            row.MouseLeftClick += p =>
+            var entry = visible[rowIndex];
+            if (rowIndex == rows.Count)
             {
-                if (entry.Value is null) return;
-                Select(entry.Owner, entry.Value);
-                if (p.X < row.Position.X + 18)
+                int index = rowIndex;
+                var created = new TextElement(window.Scene) { Font = global::ProjectZ.Shared.Content.Fonts.SegoeUI.get_GetResourceName(10), Clip = true };
+                created.MouseLeftClick += p =>
                 {
-                    try { if (!expanded.Remove(entry.Value.Guid) && entry.Owner.Expand(entry.Value) is not null) expanded.Add(entry.Value.Guid); } catch (Exception ex) { status.Text = ex.Message; }
-                    RefreshRows();
-                }
-            };
-            rows.Add(window.Add(row)); rowTargets.Add((entry.Owner, entry.Value));
+                    if (index >= rowTargets.Count || rowTargets[index].Value is not { } value) return;
+                    var owner = rowTargets[index].Owner;
+                    Select(owner, value);
+                    // Mouse click coordinates are local to this row.
+                    if (p.X < 18)
+                    {
+                        try { if (!expanded.Remove(value.Guid) && owner.Expand(value) is not null) expanded.Add(value.Guid); } catch (Exception ex) { status.Text = ex.Message; }
+                        RefreshRows();
+                    }
+                };
+                rows.Add(window.Add(created));
+            }
+            var row = rows[rowIndex];
+            float x = 12 + Math.Min(entry.Depth, 4) * 12, y = 102 + rowIndex * 25;
+            var text = entry.Value is null ? entry.Text : "+ " + entry.Text;
+            if (row.Text != text) row.Text = text;
+            row.Position = new(x, y); row.Size = new(treeWidth - x - 6, 24);
+            row.ForegroundColor = entry.Value == selected ? new Color(84, 218, 195) : entry.Value is null ? Color.White : new Color(183, 199, 211);
+            row.isVisible = true; rowTargets.Add((entry.Owner, entry.Value));
         }
+        // Keep scene registrations alive across periodic updates. Removing and
+        // re-adding after Scene.Tick left the next rendered frame without rows.
+        for (int index = visible.Length; index < rows.Count; index++) rows[index].isVisible = false;
     }
     sealed record WatchTarget(string Name, Func<object?> Resolve, Type? StaticType = null);
     void ToggleTargets()
@@ -239,6 +257,7 @@ public sealed class DebugWindow : IDisposable
     {
         if (pump is not null && hostScene is not null) hostScene.FrameUpdated -= pump;
         pump = null; window?.Dispose(); window = null;
+        rows.Clear(); rowTargets.Clear(); actionButtons.Clear(); targetControls.Clear();
     }
     public void Dispose() { Close(); if (hostScene is null) thread?.Join(TimeSpan.FromSeconds(3)); else DisposeSurface(); }
 }
@@ -250,7 +269,8 @@ public static class RootDiscovery
     public static void Unregister(object instance) { lock (registered) registered.Remove(instance); }
     public static IEnumerable<Type> ApplicationTypes()
     {
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        var entry = Assembly.GetEntryAssembly();
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().OrderBy(a => a == entry ? 0 : 1))
         {
             var name = assembly.GetName().Name ?? "";
             if (name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft", StringComparison.Ordinal) || name.StartsWith("heirowDebug", StringComparison.Ordinal) || name.StartsWith("ProjectZ", StringComparison.Ordinal) || name.StartsWith("MonoGame", StringComparison.Ordinal) || assembly.IsDynamic) continue;
@@ -262,18 +282,51 @@ public static class RootDiscovery
     public static object[] FindRoots()
     {
         var roots = new HashSet<object>(ReferenceEqualityComparer.Instance); lock (registered) roots.UnionWith(registered);
-        // MonoGame keeps live games in a process registry. Read fields only:
-        // browsing must never execute arbitrary static property getters.
-        var types = ApplicationTypes().Concat(typeof(Game).Assembly.GetTypes().Where(t => t == typeof(Game) || t.Name.Contains("GamePlatform", StringComparison.Ordinal)));
-        foreach (var type in types.Take(4096))
+        // Read MonoGame's live game/window fields before the application type
+        // budget. Large applications can otherwise exhaust that budget before
+        // reaching Game._instance, especially when Main only holds a local game.
+        ReadFields(typeof(Game));
+        foreach (var type in typeof(Game).Assembly.GetTypes().Where(t => t.Name.Contains("GameWindow", StringComparison.Ordinal) || t.Name.Contains("GamePlatform", StringComparison.Ordinal))) ReadFields(type);
+        // A live framework root already owns its scenes. Avoid initializing
+        // thousands of unrelated application statics just to rediscover it.
+        if (roots.Any(value => value is Game or Scene or SceneManager)) return roots.Take(DebugWatcher.MaximumWatcherCount).ToArray();
+        foreach (var type in ApplicationTypes().Take(4096)) ReadFields(type);
+        return roots.Take(DebugWatcher.MaximumWatcherCount).ToArray();
+        void ReadFields(Type type)
+        {
             foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).Take(192))
                 try { Add(field.GetValue(null), 0); } catch { }
-        return roots.Take(DebugWatcher.MaximumWatcherCount).ToArray();
+        }
         void Add(object? value, int depth)
         {
-            if (value is null || depth > 2) return;
+            if (value is null || depth > 4 || roots.Count >= DebugWatcher.MaximumWatcherCount) return;
             if (value is Scene or SceneManager or Game) { roots.Add(value); return; }
-            if (value is IEnumerable items && value is not string) { int n = 0; foreach (var item in items) { if (++n > 64) break; Add(item, depth + 1); } }
+            if (value is IDictionary dictionary) { int n = 0; foreach (DictionaryEntry item in dictionary) { if (++n > 64) break; Add(item.Value, depth + 1); } }
+            else if (value is IEnumerable items && value is not string) { int n = 0; foreach (var item in items) { if (++n > 64) break; Add(item, depth + 1); } }
+            else if (value.GetType().Assembly == typeof(Game).Assembly && (value is GameWindow || value.GetType().Name.Contains("GamePlatform", StringComparison.Ordinal)))
+                for (var type = value.GetType(); type is not null; type = type.BaseType)
+                    foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Take(192))
+                        if (!field.FieldType.IsValueType && field.FieldType != typeof(string)) try { Add(field.GetValue(value), depth + 1); } catch { }
         }
+    }
+    public static Scene? FindScene(object root)
+    {
+        if (root is Scene scene) return scene;
+        if (root is SceneManager manager) return manager.ActiveScene;
+        // GetFields on a derived type omits private fields declared by its bases.
+        int remaining = 192;
+        for (var type = root.GetType(); type is not null && remaining > 0; type = type.BaseType)
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                if (--remaining < 0) break;
+                try
+                {
+                    var value = field.GetValue(root);
+                    if (value is Scene found) return found;
+                    if (value is SceneManager owner && owner.ActiveScene is { } active) return active;
+                }
+                catch { }
+            }
+        return null;
     }
 }

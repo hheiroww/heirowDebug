@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 
 namespace heirowDebug.ProjectZ.Tools;
 
@@ -29,7 +27,7 @@ public static class InjectorService
         }
         return result;
     }
-    public static async Task<string> RestartAndInjectAsync(ProjectZProcessInfo target, bool recursive = false, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    public static async Task<string> RestartAndInjectAsync(ProjectZProcessInfo target, bool recursive = false, IProgress<string>? progress = null, CancellationToken cancellationToken = default, string? preferredRootType = null)
     {
         var directory = AppContext.BaseDirectory;
         var hook = Path.Combine(directory, "heirowDebug.ProjectZ.Hook.dll");
@@ -37,8 +35,15 @@ public static class InjectorService
         // Validate all payload and target identity before asking the process to close.
         using var process = Process.GetProcessById(target.Id);
         if (!string.Equals(process.MainModule?.FileName, target.ExecutablePath, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The selected process identity changed. Refresh the process list.");
-        if (!process.CloseMainWindow() && !CloseNativeWindow(process.Id)) throw new InvalidOperationException("The target could not close normally. Close it yourself after saving your work.");
-        await process.WaitForExitAsync(cancellationToken).WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+        bool originalRunning = false;
+        progress?.Report($"Requesting a normal close of {target.Name} (PID {target.Id})…");
+        if (process.CloseMainWindow() || CloseNativeWindow(process.Id))
+        {
+            try { await process.WaitForExitAsync(cancellationToken).WaitAsync(TimeSpan.FromSeconds(15), cancellationToken); }
+            catch (TimeoutException) { originalRunning = !process.HasExited; }
+        }
+        else originalRunning = !process.HasExited;
+        if (originalRunning) progress?.Report($"PID {target.Id} kept running after the close request. Opening a separate debug instance and preserving the original process.");
         var statusFolder = Path.Combine(Path.GetTempPath(), "heirowDebug", "projectz-injections"); Directory.CreateDirectory(statusFolder);
         var statusFile = Path.Combine(statusFolder, System.Guid.NewGuid().ToString("N") + ".status");
         var start = new ProcessStartInfo(target.ExecutablePath) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(target.ExecutablePath)! };
@@ -47,19 +52,24 @@ public static class InjectorService
         start.Environment["heirowDebug_PROJECTZ_PAYLOAD"] = directory;
         start.Environment["heirowDebug_STATUS_FILE"] = statusFile;
         start.Environment["heirowDebug_RECURSIVE"] = recursive ? "1" : "0";
+        start.Environment["heirowDebug_ROOT_TYPE"] = preferredRootType ?? "";
         using var launched = Process.Start(start) ?? throw new InvalidOperationException("Windows did not launch the target.");
         progress?.Report($"Started PID {launched.Id}. Waiting for its Project-Z scene…");
         try
         {
-            var deadline = DateTime.UtcNow.AddSeconds(60);
+            var deadline = DateTime.UtcNow.AddSeconds(75);
+            string? previousStatus = null;
             while (DateTime.UtcNow < deadline)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (File.Exists(statusFile))
                 {
                     string status; try { status = await File.ReadAllTextAsync(statusFile, cancellationToken); } catch (IOException) { await Task.Delay(100, cancellationToken); continue; }
-                    if (status.StartsWith("READY|", StringComparison.Ordinal)) return $"Injected into {target.Name} (PID {launched.Id}). " + status.Split('|', 4)[3];
-                    if (status.StartsWith("ERROR|", StringComparison.Ordinal)) throw new InvalidOperationException(status.Split('|', 4)[3]);
+                    var parts = status.Split('|', 4);
+                    if (parts.Length != 4) { await Task.Delay(50, cancellationToken); continue; }
+                    if (parts[0] == "READY") return $"Injected into {target.Name} (PID {launched.Id}). " + parts[3] + (originalRunning ? $" Original PID {target.Id} remains running." : "");
+                    if (parts[0] == "ERROR") throw new InvalidOperationException(parts[3]);
+                    if (status != previousStatus) { progress?.Report(parts[3]); previousStatus = status; }
                 }
                 if (launched.HasExited) throw new InvalidOperationException($"The target exited with code {launched.ExitCode} before the debugger was ready.");
                 await Task.Delay(100, cancellationToken);

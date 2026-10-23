@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.Loader;
 
 // The runtime requires this exact global entry point. Keep framework references
@@ -10,6 +9,9 @@ internal static class StartupHook
         var directory = Environment.GetEnvironmentVariable("heirowDebug_PROJECTZ_PAYLOAD") ?? Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)!;
         AssemblyLoadContext.Default.Resolving += (context, name) =>
         {
+            // Only supply debugger code. The target owns its bundled/Fody-loaded
+            // framework, renderer and all other dependencies.
+            if (name.Name != "heirowDebug.ProjectZ") return null;
             var loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == name.Name);
             var candidate = Path.Combine(directory, name.Name + ".dll");
             return loaded ?? (File.Exists(candidate) ? context.LoadFromAssemblyPath(candidate) : null);
@@ -28,61 +30,64 @@ internal static class StartupHook
     {
         // Delay loading the native framework until the application has loaded its
         // own copy. The hook must not replace the target's renderer/dependencies.
-        var deadline = DateTime.UtcNow.AddMinutes(2);
+        var deadline = DateTime.UtcNow.AddSeconds(60);
         while (DateTime.UtcNow < deadline)
         {
-            if (AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "ProjectZ")) { Attach(); return; }
+            var loaded = AppDomain.CurrentDomain.GetAssemblies();
+            if (loaded.Any(a => a.GetName().Name == "ProjectZ") && loaded.Any(a => a.GetName().Name == "MonoGame.Framework")) { Attach(deadline); return; }
             Thread.Sleep(100);
         }
         Report("ERROR", "Timed out waiting for Project-Z to load.");
     }
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    static void Attach()
+    static void Attach(DateTime deadline)
     {
         heirowDebug.ProjectZ.Utils.FramesPerSecond = 15;
-        var deadline = DateTime.UtcNow.AddMinutes(2);
         Report("WAITING", "Discovering live Project-Z games, scenes and static application roots.");
-        while (DateTime.UtcNow < deadline)
+        int activated = 0;
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subscriptions = new List<(global::ProjectZ.Shared.Drawing.Scene Scene, global::ProjectZ.Shared.Drawing.Scene.FrameUpdatedEventHandler Handler)>();
+        try
         {
-            foreach (var root in heirowDebug.ProjectZ.RootDiscovery.FindRoots())
+            while (DateTime.UtcNow < deadline && !completed.Task.IsCompleted)
             {
-                // Scene frame callbacks are the only place that native controls
-                // and graphics may be constructed inside an existing application.
-                var scene = FindScene(root);
-                if (scene is null || !scene.isInitialized) continue;
-                int activated = 0;
-                global::ProjectZ.Shared.Drawing.Scene.FrameUpdatedEventHandler? onFrame = null;
-                onFrame = _ =>
+                foreach (var root in OrderedRoots())
                 {
-                    if (Interlocked.Exchange(ref activated, 1) != 0) return;
-                    scene.FrameUpdated -= onFrame;
-                    try
+                    // Subscribe to each candidate: an initialized but inactive
+                    // scene must not prevent a running scene from accepting us.
+                    var scene = heirowDebug.ProjectZ.RootDiscovery.FindScene(root);
+                    if (scene is null || !scene.isInitialized || subscriptions.Any(s => ReferenceEquals(s.Scene, scene))) continue;
+                    global::ProjectZ.Shared.Drawing.Scene.FrameUpdatedEventHandler onFrame = _ =>
                     {
-                        var roots = heirowDebug.ProjectZ.RootDiscovery.FindRoots();
-                        foreach (var live in roots)
+                        if (Interlocked.CompareExchange(ref activated, 1, 0) != 0) return;
+                        try
                         {
-                            var watcher = heirowDebug.ProjectZ.DebugWatcher.WatchWindow(live, Environment.GetEnvironmentVariable("heirowDebug_RECURSIVE") == "1");
-                            watcher.AttachScene(scene); watcher.StartSession();
+                            var roots = OrderedRoots().Where(r => ReferenceEquals(heirowDebug.ProjectZ.RootDiscovery.FindScene(r), scene)).ToArray();
+                            foreach (var live in roots)
+                            {
+                                var watcher = heirowDebug.ProjectZ.DebugWatcher.WatchWindow(live, Environment.GetEnvironmentVariable("heirowDebug_RECURSIVE") == "1");
+                                watcher.AttachScene(scene); watcher.StartSession();
+                            }
+                            heirowDebug.ProjectZ.DebugWatcher.CreateDebugWindow();
+                            if (heirowDebug.ProjectZ.DebugWatcher.DebugWindow?.IsVisible != true) throw new InvalidOperationException("The debugger did not create a visible native window.");
+                            Report("READY", $"Watching {roots.Length} Project-Z roots on their scene thread.");
                         }
-                        heirowDebug.ProjectZ.DebugWatcher.CreateDebugWindow();
-                        Report("READY", $"Watching {roots.Length} Project-Z roots on their scene thread.");
-                    }
-                    catch (Exception ex) { Report("ERROR", (ex.InnerException ?? ex).Message); }
-                };
-                scene.FrameUpdated += onFrame;
-                return;
+                        catch (Exception ex) { Report("ERROR", (ex.InnerException ?? ex).Message); }
+                        finally { completed.TrySetResult(); }
+                    };
+                    subscriptions.Add((scene, onFrame));
+                    scene.FrameUpdated += onFrame;
+                }
+                completed.Task.Wait(100);
             }
-            Thread.Sleep(100);
+            if (!completed.Task.IsCompleted && Interlocked.CompareExchange(ref activated, -1, 0) == 0) Report("ERROR", "No updating Project-Z scene could be discovered. Keep the application open and restore its main window before retrying.");
         }
-        Report("ERROR", "No live scene could be discovered. Register a Game/Scene root with RootDiscovery.Register, or expose it in an application static field.");
+        finally { foreach (var subscription in subscriptions) subscription.Scene.FrameUpdated -= subscription.Handler; }
     }
-    static global::ProjectZ.Shared.Drawing.Scene? FindScene(object root)
+    static object[] OrderedRoots()
     {
-        if (root is global::ProjectZ.Shared.Drawing.Scene scene) return scene;
-        if (root is global::ProjectZ.Shared.Drawing.SceneManager manager) return manager.ActiveScene;
-        foreach (var field in root.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            try { if (field.GetValue(root) is global::ProjectZ.Shared.Drawing.Scene s) return s; if (field.GetValue(root) is global::ProjectZ.Shared.Drawing.SceneManager m) return m.ActiveScene; } catch { }
-        return null;
+        var preferred = Environment.GetEnvironmentVariable("heirowDebug_ROOT_TYPE");
+        return heirowDebug.ProjectZ.RootDiscovery.FindRoots().OrderBy(root => !string.IsNullOrWhiteSpace(preferred) && (root.GetType().Name == preferred || root.GetType().FullName == preferred) ? 0 : 1).ToArray();
     }
     static void Report(string state, string detail)
     {

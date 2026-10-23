@@ -38,6 +38,8 @@ public class NativeWindow : Game
         presentation = new SpriteBatch(GraphicsDevice);
         Services.AddService(typeof(SpriteBatch), batch); Services.AddService(typeof(GraphicsDevice), GraphicsDevice); Services.AddService(typeof(ContentContainer), content);
         manager = new SceneManager(this, 60); Scene = new SurfaceScene(manager) { BackgroundColor = new Color(16, 22, 29), EnableDesignTimeControls = false };
+        Scene.Quality.AntiAliasingSamples = 16;
+        Scene.Quality.Filtering = TextureFiltering.Anisotropic16x;
         manager.AddScene("debugger", Scene); manager.ActiveScene = Scene;
         // Route each window's actual HWND messages. Process-global SDL input would
         // otherwise let the debugger steal the target scene's keyboard/pointer.
@@ -47,7 +49,7 @@ public class NativeWindow : Game
     void ApplyIcon()
     {
         var hwnd = global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(this);
-        using var stream = typeof(NativeWindow).Assembly.GetManifestResourceStream("heirowDebug.ProjectZ.ico");
+        using var stream = OpenWindowIcon();
         if (stream is null) return;
         using var icon = new System.Drawing.Icon(stream);
         SendMessage(hwnd, 0x80, 0, icon.Handle); SendMessage(hwnd, 0x80, 1, icon.Handle);
@@ -56,6 +58,16 @@ public class NativeWindow : Game
         SendMessage(hwnd, 0x80, 0, retainedIcon.Handle); SendMessage(hwnd, 0x80, 1, retainedIcon.Handle);
     }
     System.Drawing.Icon? retainedIcon;
+    protected virtual Stream? OpenWindowIcon() => typeof(NativeWindow).Assembly.GetManifestResourceStream("heirowDebug.ProjectZ.ico");
+    public bool IsWindowVisible => IsWindowVisibleNative(global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(this));
+    public void ShowNativeWindow()
+    {
+        // RunOneFrame does not enter the native platform RunLoop that shows a
+        // window. Explicitly show debugger surfaces pumped by another scene.
+        ShowWindow(global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(this), 5);
+    }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int command);
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "IsWindowVisible")] static extern bool IsWindowVisibleNative(IntPtr hwnd);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int message, IntPtr wparam, IntPtr lparam);
     protected override void Update(GameTime time)
     {
@@ -71,7 +83,7 @@ public class NativeWindow : Game
         }
         GraphicsDevice.SetRenderTarget(frame);
         try { manager.Draw(time); } finally { GraphicsDevice.SetRenderTarget(null); }
-        presentation.Begin(SpriteSortMode.Deferred, BlendState.Opaque);
+        presentation.Begin(SpriteSortMode.Deferred, BlendState.Opaque, Scene.Quality.Sampler);
         presentation.Draw(frame, new Rectangle(0, 0, parameters.BackBufferWidth, parameters.BackBufferHeight), Color.White); presentation.End();
         base.Draw(time);
     }
@@ -86,10 +98,20 @@ public class NativeWindow : Game
         try { manager.InjectMouseLeftDown(x, y, Width, Height); manager.InjectMouseLeftUp(x, y, Width, Height); }
         finally { manager.UseExternalInput = previous; }
     }
+    public void DispatchKey(Microsoft.Xna.Framework.Input.Keys key)
+    {
+        bool previous = manager.UseExternalInput; manager.UseExternalInput = true;
+        try { manager.InjectKeyDown(key); manager.InjectKeyUp(key); }
+        finally { manager.UseExternalInput = previous; }
+    }
+    protected void ResizeClient(int width, int height)
+    {
+        graphics.PreferredBackBufferWidth = width; graphics.PreferredBackBufferHeight = height; graphics.ApplyChanges();
+    }
     public T Add<T>(T element) where T : SceneElement { Scene.AddElement(element); return element; }
     public TextElement Label(string text, float x, float y, float width = 500, int size = 12) => Add(new TextElement(Scene)
     {
-        Text = text, Position = new(x, y), Size = new(width, Math.Max(24, size * 2)), Font = Fonts.SegoeUI.get_GetResourceName(size), ForegroundColor = new Color(220, 230, 237)
+        Text = text, Position = new(x, y), Size = new(width, Math.Max(24, size * 2)), Font = Fonts.SegoeUI.get_GetResourceName(size), ForegroundColor = new Color(220, 230, 237), Clip = true
     });
     public NativeButton Button(string text, float x, float y, float width, Action action)
     {

@@ -21,6 +21,9 @@ launcher/startup hook, and a native protection page using the same protection
 engine and pre-runtime launcher as the WPF tool. It also includes a runnable VB
 scene sample. See [Project-Z integration and behavior](heirowDebug.ProjectZ/README.md).
 
+The native injector uses the same XAML layout as the WPF injector, with a directly
+selectable process table, keyboard navigation, scrolling, and 16x AA/AF.
+
 ```powershell
 dotnet run --project heirowDebug.ProjectZ.Tools -c Release
 ```

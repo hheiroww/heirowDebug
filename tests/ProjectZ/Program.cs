@@ -32,6 +32,7 @@ static class Program
         public int SideEffect { get { Reads++; return Reads; } }
         public int Failure => throw new InvalidOperationException("getter failure");
         public string Text { get; set; } = "before";
+        public string LongLabel = "Long watcher text must stay in the tree column: " + new string('W', 180);
     }
     static class Statics { public static int Value = 12; public static int GetterReads; public static object Deferred { get { GetterReads++; return new object(); } } }
     static void Core()
@@ -85,6 +86,7 @@ static class Program
         using var app = new NativeWindow("Project-Z debugger acceptance target", 1100, 720);
         DebugWatcher? watcher = null; DebugWindow? inspector = null;
         var sample = new Sample(); int frames = 0; bool editQueued = false; Task? editTask = null;
+        int stableTreeFrames = 0;
         app.Ready += () =>
         {
             app.Label("Project-Z native debugger acceptance", 30, 25, 1000, 20);
@@ -105,6 +107,29 @@ static class Program
                 // Exercise marshaling from a foreign thread into the scene loop.
                 editTask = Task.Run(() => watcher!.Values.Single(v => v.Name == nameof(Sample.Text)).ApplyAsync("scene-thread write"));
             }
+            if (frames >= 45 && frames < 69)
+            {
+                var capture = result + ".tree-frame.png";
+                inspector!.SaveFrame(capture);
+                using var image = new System.Drawing.Bitmap(capture);
+                int textPixels = 0;
+                for (int y = 104; y < Math.Min(image.Height - 140, 420); y += 2)
+                    for (int x = 12; x < 305; x += 2)
+                    {
+                        var pixel = image.GetPixel(x, y);
+                        if (pixel.R > 90 && pixel.G > 90 && pixel.B > 90) textPixels++;
+                    }
+                Check(textPixels >= 24, $"Watcher tree disappeared during refresh at frame {frames}: {textPixels} foreground pixels.");
+                int bleedPixels = 0;
+                for (int y = 104; y < Math.Min(image.Height - 140, 420); y++)
+                    for (int x = 330; x < 345; x++)
+                    {
+                        var pixel = image.GetPixel(x, y);
+                        if (pixel.R > 90 && pixel.G > 90 && pixel.B > 90) bleedPixels++;
+                    }
+                Check(bleedPixels == 0, $"Watcher text escaped into the plot gutter at frame {frames}: {bleedPixels} foreground pixels.");
+                stableTreeFrames++;
+            }
             if (frames == 70)
             {
                 inspector!.DispatchClick(380, 75);
@@ -121,13 +146,14 @@ static class Program
             if (frames > 160)
             {
                 Check(inspector?.IsVisible == true, "Native debugger did not remain visible.");
+                Check(stableTreeFrames == 24, "Sustained watcher tree rendering was not checked.");
                 Check(editTask?.IsCompletedSuccessfully == true && sample.Text == "scene-thread write", "Scene-thread edit did not complete.");
                 Check(watcher!.Values.Single(v => v.Name == nameof(Sample.Number)).Timeline.GetSnapshots().Length > 2, "Live native scene did not sample changing values.");
                 Check(global::ProjectZ.Shared.Drawing.UI.SceneElement.RenderExceptionCount == 0, global::ProjectZ.Shared.Drawing.UI.SceneElement.FirstRenderException ?? "Native rendering failed.");
                 var hwnd = global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(app);
                 Check(hwnd != IntPtr.Zero, "No real HWND was created.");
                 inspector!.SaveFrame(result + ".png");
-                File.WriteAllText(result, "PASS native HWND, live inspector, scene-thread sampling/editing, rendering and continued target frames");
+                File.WriteAllText(result, "PASS native HWND, live inspector, scene-thread sampling/editing, 24 consecutive watcher-tree frames without blanking or text bleed, rendering and continued target frames");
                 inspector!.Dispose(); watcher.Dispose(); app.Exit();
             }
         };

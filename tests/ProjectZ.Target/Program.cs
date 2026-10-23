@@ -7,13 +7,17 @@ using ProjectZ.Shared.Drawing.UI.Primitives;
 // Deliberately has NO debugger reference. Injection must find a live application.
 static class Program
 {
-    public static TargetGame? Game;
-    [STAThread] static void Main() { using (Game = new TargetGame()) Game.Run(); }
+    [STAThread] static void Main() { using var game = new TargetGame(); game.Run(); }
 }
-sealed class TargetGame : Game
+// Keep the manager private in a base class, as a host wrapper or weaver may do.
+abstract class TargetGameBase : Game
+{
+    private SceneManager? manager;
+    protected SceneManager Manager { get => manager!; set => manager = value; }
+}
+sealed class TargetGame : TargetGameBase
 {
     readonly GraphicsDeviceManager graphics;
-    public SceneManager Manager = null!;
     public double Number { get; set; }
     public bool Active { get; set; }
     public Vector2 Position { get; set; }
