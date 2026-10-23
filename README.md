@@ -117,6 +117,16 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 ```
 
 ## Demo
+
+### Native Project-Z
+
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
+
+A 9.6-second recording of the native inspector watching sample telemetry, with
+16x AA/AF, a live numeric timeline, a spatial trace and boolean state bands.
+
+### WPF
+
 ![Live .NET 10 debugger: numeric timelines, point trails, and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-live-demo.gif)
 
 An 8-second recording of the actual .NET 10 debugger watching changing telemetry, captured with [tools/LiveDemo](tools/LiveDemo). The optimized 760px GIF is **556 KB**, about 82% smaller than the previous demo; no video player is required.

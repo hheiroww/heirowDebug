@@ -7,6 +7,11 @@ is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
 launcher/injector and protection tool use Project-Z scenes and native controls.
 It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
+
+The recording shows the production native inspector watching sample telemetry
+with 16x AA/AF: a numeric timeline, a spatial trace and boolean state bands.
+
 ```powershell
 dotnet add package heirowDebug.ProjectZ --version 2026.10.23.1
 ```

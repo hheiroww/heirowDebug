@@ -29,3 +29,21 @@ and shortcuts all use the corresponding ICO.
 without re-encoding for the lightweight README header. `heirowDebug-live-demo.gif`
 records the real .NET 10 debugger watching changing sample telemetry; it is not
 generated artwork.
+
+## Native Project-Z recording
+
+`heirowDebug-ProjectZ-demo.gif` records the production native inspector using
+synthetic telemetry, with 16x anti-aliasing and 16x anisotropic filtering.
+It contains 96 frames at 10 fps, displayed at 1024 by 640 pixels. The recording
+shows a numeric timeline, a live spatial trace and boolean state bands.
+
+Capture fresh frames into an empty output directory:
+
+```powershell
+dotnet run --project tools/ProjectZLiveDemo/ProjectZLiveDemo.csproj -c Release -- artifacts/native-demo-frames
+```
+
+The harness writes PNG frames and a capture receipt under `artifacts`.
+The checked-in GIF uses Lanczos scaling, a 128-color palette, no dithering and
+rectangle-based frame differences. Desktop content and live account/application
+data are excluded from the recording.
