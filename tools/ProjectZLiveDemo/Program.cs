@@ -26,6 +26,7 @@ static class Program
         var nextCapture = TimeSpan.FromSeconds(2);
         host.Ready += () =>
         {
+            host.UseScriptedInput();
             watcher = new DebugWatcher(telemetry, false, "Live Project-Z telemetry");
             watcher.AttachScene(host.Scene); watcher.StartSession();
             host.Label("Production native inspector · sample telemetry", 25, 25, 900, 18);
@@ -42,18 +43,28 @@ static class Program
             {
                 inspector = new DebugWindow { Title = "heirowDebug Project-Z · live inspection" };
                 inspector.Show();
+                inspector.Surface.UseScriptedInput();
             }
             if (inspector?.IsVisible != true || clock.Elapsed < nextCapture) return;
-            int nextPhase = captured < 40 ? 0 : captured < 70 ? 1 : 2;
+            int nextPhase = captured < 32 ? 0 : captured < 48 ? 1 : captured < 72 ? 2 : 3;
             if (nextPhase != phase)
             {
-                var member = nextPhase == 0 ? nameof(Telemetry.LoadPercent) : nextPhase == 1 ? nameof(Telemetry.Position) : nameof(Telemetry.IsBusy);
-                inspector.Select(watcher!, watcher!.Values.Single(value => value.Name == member));
-                if (!inspector.SelectedValue!.TryEnablePropertyHooks(out var hookError)) throw new InvalidOperationException("Demo property hook failed: " + hookError);
-                var mode = nextPhase == 1 ? VisualizationMode.SpatialOverlay : VisualizationMode.Auto;
+                var member = nextPhase == 0 ? nameof(Telemetry.LoadPercent) : nextPhase <= 2 ? nameof(Telemetry.Position) : nameof(Telemetry.IsBusy);
+                var value = watcher!.Values.Single(value => value.Name == member);
+                if (nextPhase == 1)
+                {
+                    var row = inspector.TreeRows.Single(row => row.Text.Contains("Position:"));
+                    inspector.DispatchClick((int)row.Position.X + 5, (int)row.Position.Y + 8);
+                    var x = inspector.TreeRows.Single(row => row.Text.TrimStart().StartsWith("X:"));
+                    inspector.DispatchClick((int)x.Position.X + 32, (int)x.Position.Y + 8);
+                    if (inspector.SelectedValue?.Name != "X" || inspector.SelectedValue.Value is not float) throw new InvalidOperationException("The expanded X component was not selectable and numeric.");
+                }
+                else inspector.Select(watcher, value);
+                if (inspector.SelectedValue!.CanHookProperty && !inspector.SelectedValue.TryEnablePropertyHooks(out var hookError)) throw new InvalidOperationException("Demo property hook failed: " + hookError);
+                var mode = nextPhase == 2 ? VisualizationMode.SpatialOverlay : VisualizationMode.Auto;
                 for (int attempt = 0; inspector.VisualizationMode != mode && attempt < 4; attempt++) inspector.DispatchClick(380, 75);
                 if (inspector.VisualizationMode != mode) throw new InvalidOperationException("The production View control did not change visualization mode.");
-                selections.Add(member); phase = nextPhase;
+                selections.Add(nextPhase == 1 ? "Position.X" : member); phase = nextPhase;
                 nextCapture = clock.Elapsed + TimeSpan.FromMilliseconds(200);
                 return;
             }

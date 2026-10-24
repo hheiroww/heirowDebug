@@ -1,5 +1,16 @@
 # Windows installation
 
+The current [2026.10.23.4 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.4)
+includes self-contained Windows x64 portable ZIPs for the native Project-Z tools
+and WPF injector, plus `heirowDebug.ProjectZ` and `heirowDebug.WPF` NuGet archives.
+Extract a complete ZIP into its own folder before running the application.
+Run `heirowDebug.ProjectZ.Tools.exe` for Project-Z or `heirowDebug.exe` for WPF.
+The libraries are also available through NuGet.org and
+[GitHub Packages](https://github.com/hheiroww?tab=packages&repo_name=heirowDebug).
+`SHA256SUMS.txt` covers all downloadable release assets.
+
+The installer instructions below apply to the previous 2026.10.17.1 release.
+
 Download a Windows x64 installer or portable ZIP from
 [GitHub Releases](https://github.com/hheiroww/heirowDebug/releases).
 The applications include their .NET runtime. The native launcher is bundled

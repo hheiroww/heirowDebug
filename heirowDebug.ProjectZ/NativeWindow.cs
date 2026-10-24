@@ -121,6 +121,7 @@ public class NativeWindow : Game
         try { manager.InjectTextInput(text); }
         finally { manager.UseExternalInput = previous; }
     }
+    internal void UseScriptedInput() => manager.UseExternalInput = true;
     protected void ResizeClient(int width, int height)
     {
         graphics.PreferredBackBufferWidth = width; graphics.PreferredBackBufferHeight = height; graphics.ApplyChanges();

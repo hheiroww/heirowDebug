@@ -4,16 +4,16 @@
 
 **Live objects. Clear timelines. Visual debugging.**
 
-Version 2026.10.23.3 · Windows · .NET 10
+Version 2026.10.23.4 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.3
+dotnet add package heirowDebug.WPF --version 2026.10.23.4
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.3
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.4
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
@@ -32,7 +32,11 @@ Sampling and edits run on the owning scene thread when the watcher is attached
 with `AttachScene(scene)`. Reflection, history retention and recursive expansion
 are bounded. XNA points, vectors, rectangles and colors have native visualizations.
 The native inspector shows numeric/time axes, current channel values and accurate
-open/closed tree arrows. A dual-thumb history slider, imported from the WPF XAML,
+open/closed tree arrows. Changed tree values glow green behind their text, fading
+to transparent in one second; each new change restarts the fade.
+Expanded struct components such as `Position.X` keep their selection and numeric
+history as the parent updates.
+A dual-thumb history slider, imported from the WPF XAML,
 has editable Min/Max percentages; value inputs disable spelling.
 Moving Max below 100% freezes the graph as a snapshot while recording continues.
 Min/Max then navigate that captured history. Set Max to 100% to resume live updates.
@@ -43,7 +47,22 @@ including multiple transitions within one frame. Fields retain bounded sampling.
 See [property capture and runtime limitations](heirowDebug.ProjectZ/README.md#event-driven-property-capture).
 
 Get the libraries from NuGet: [heirowDebug.WPF](https://www.nuget.org/packages/heirowDebug.WPF/)
-and [heirowDebug.ProjectZ](https://www.nuget.org/packages/heirowDebug.ProjectZ/).
+and [heirowDebug.ProjectZ](https://www.nuget.org/packages/heirowDebug.ProjectZ/),
+or [GitHub Packages](https://github.com/hheiroww?tab=packages&repo_name=heirowDebug).
+
+## Latest release
+
+[2026.10.23.4 on GitHub](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.4)
+includes self-contained Windows x64 tools and both debugger packages:
+
+| Download | Contents |
+| --- | --- |
+| [Project-Z tools ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug-ProjectZ-2026.10.23.4-windows-x64.zip) | Native injector, inspector, protection tool and live demo; run `heirowDebug.ProjectZ.Tools.exe` |
+| [WPF injector ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug-WPF-2026.10.23.4-windows-x64.zip) | WPF injector and live inspector; run `heirowDebug.exe` |
+| [Project-Z package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug.ProjectZ.2026.10.23.4.nupkg) / [WPF package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug.WPF.2026.10.23.4.nupkg) | NuGet library archives |
+
+Extract the entire ZIP before running its EXE. .NET 10 is included.
+`SHA256SUMS.txt` accompanies the release downloads.
 
 The installer links below are the previous **2026.10.17.1** standalone release.
 
@@ -80,7 +99,7 @@ See [Windows installation options](packaging/README.md) for installer and portab
 Add the library to your WPF application from NuGet:
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.1
+dotnet add package heirowDebug.WPF --version 2026.10.23.4
 ```
 
 The older `2026.10.17.1` package is distributed with that GitHub release. Current package instructions are listed above. Existing callers of `JackDebug.WPF` must update their package reference and imports to `heirowDebug.WPF`.
@@ -130,11 +149,12 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 
 ### Native Project-Z
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.3)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.4)
 
 A 9.6-second recording of the native inspector watching sample telemetry, with
 16x AA/AF, labeled numeric/time axes, live accessor hooks, a frozen history range,
-a spatial trace and boolean state bands.
+a selected `Position.X` component, a spatial trace, boolean state bands and
+fading green tree text underglows.
 
 ### WPF
 

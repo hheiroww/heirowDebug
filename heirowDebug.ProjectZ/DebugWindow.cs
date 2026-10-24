@@ -21,7 +21,7 @@ public sealed class DebugWindow : IDisposable
     Scene.FrameUpdatedEventHandler? pump;
     volatile bool closeRequested;
     bool pumping;
-    readonly List<TextElement> rows = new();
+    readonly List<UpdatingTreeText> rows = new();
     readonly List<(DebugWatcher Owner, DebugValue? Value)> rowTargets = new();
     readonly HashSet<string> expanded = new();
     readonly HashSet<string> collapsedRoots = new();
@@ -99,6 +99,8 @@ public sealed class DebugWindow : IDisposable
             if (lastWidth != surface.Width || lastHeight != surface.Height) Layout();
             if (lastRevision != DebugWatcher.Revision || Environment.TickCount64 >= nextRefresh)
             { RefreshRows(); lastRevision = DebugWatcher.Revision; nextRefresh = Environment.TickCount64 + 250; }
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            foreach (var row in rows) row.AnimateUpdate(now);
             summary.Text = plot.Summary + (selected is null ? "" : " · " + ObservationText(selected)); events.Text = plot.EventText;
             UpdateHookButton(); SyncRangeEditors();
             events.isVisible = plot.Mode == VisualizationMode.Events || Visualization.Normalize(new(DateTime.UtcNow, selected?.Value)).Kind == ValueKind.Text;
@@ -289,7 +291,7 @@ public sealed class DebugWindow : IDisposable
             if (rowIndex == rows.Count)
             {
                 int index = rowIndex;
-                var created = new TextElement(window.Scene) { Font = global::ProjectZ.Shared.Content.Fonts.SegoeUI.get_GetResourceName(10), Clip = true };
+                var created = new UpdatingTreeText(window.Scene) { Font = global::ProjectZ.Shared.Content.Fonts.SegoeUI.get_GetResourceName(10), Clip = true };
                 created.MouseLeftClick += p =>
                 {
                     if (index >= rowTargets.Count) return;
@@ -312,9 +314,9 @@ public sealed class DebugWindow : IDisposable
             float x = 12 + Math.Min(entry.Depth, 4) * 12, y = 102 + rowIndex * 25;
             var text = entry.Value is null ? entry.Text : (entry.Owner.CanExpand(entry.Value) ? expanded.Contains(entry.Value.Guid) ? "▾ " : "▸ " : "  ") + entry.Text;
             if (row.Text != text) row.Text = text;
-            row.Position = new(x, y); row.Size = new(treeWidth - x - 6, 24);
+            row.Position = new(x, y); row.Size = new(treeWidth - x - 8, 24);
             row.ForegroundColor = entry.Value == selected ? new Color(84, 218, 195) : entry.Value is null ? Color.White : new Color(183, 199, 211);
-            row.isVisible = true; rowTargets.Add((entry.Owner, entry.Value));
+            row.Value = entry.Value; row.isVisible = true; rowTargets.Add((entry.Owner, entry.Value));
         }
         // Keep scene registrations alive across periodic updates. Removing and
         // re-adding after Scene.Tick left the next rendered frame without rows.

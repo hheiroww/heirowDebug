@@ -13,7 +13,7 @@ static class Program
         {
             if (args is ["--runtime", var result]) { Runtime(result); return 0; }
             if (args is ["--protected-runtime", var executable, var resultFile]) { ProtectedRuntime(executable, resultFile); return 0; }
-            Core(); Observation(); SnapshotSelection(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles, native visualization types, notifications, getter/setter hooks and frozen history selection"); return 0;
+            Core(); Observation(); SnapshotSelection(); ExpandedValues(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles, native visualization types, notifications, getter/setter hooks, frozen history selection and stable expanded structs"); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
@@ -21,6 +21,7 @@ static class Program
     sealed class Sample
     {
         public double Number = 7;
+        public int IdleValue;
         public bool Boolean = true;
         public List<int> Items = [1, 2, 3];
         public Dictionary<string, int> Dictionary = new() { ["first"] = 1 };
@@ -50,8 +51,13 @@ static class Program
         watcher.isEnabled = true; watcher.SampleNow();
         var number = watcher.Values.Single(v => v.Name == nameof(Sample.Number));
         Check((double)number.Value! == 7, "Numeric field was not sampled.");
+        Check(number.LastChangedTimestamp == 0, "Initial observation started an update glow.");
         sample.Number = 9; watcher.SampleNow();
         Check(number.Timeline.GetSnapshots().Length == 2, "Changes were not recorded.");
+        long changedAt = number.LastChangedTimestamp;
+        Check(changedAt > 0, "A value change did not start the update animation.");
+        watcher.SampleNow();
+        Check(number.LastChangedTimestamp == changedAt, "An unchanged polling pass restarted the update animation.");
         number.ApplyAsync("15.5").GetAwaiter().GetResult(); Check(sample.Number == 15.5, "Live field write failed.");
         var text = watcher.Values.Single(v => v.Name == nameof(Sample.Text)); text.ApplyAsync("after").GetAwaiter().GetResult(); Check(sample.Text == "after", "Property write failed.");
         var items = watcher.Values.Single(v => v.Name == nameof(Sample.Items)); sample.Items[0] = 42; watcher.SampleNow();
@@ -205,6 +211,28 @@ static class Program
         }
         finally { ValueTimeline.MaximumSnapshotsPerValue = retention; }
     }
+    static void ExpandedValues()
+    {
+        var sample = new Sample();
+        using var watcher = new DebugWatcher(sample);
+        var point = watcher.Values.Single(value => value.Name == nameof(Sample.Point));
+        point.Sample(DateTime.UtcNow);
+        using var child = watcher.Expand(point)!;
+        child.isEnabled = true; child.SampleNow();
+        var x = child.Values.Single(value => value.Name == "X");
+        for (int i = 1; i <= 6; i++)
+        {
+            sample.Point = new(10 + i, 20 + i); point.Sample(DateTime.UtcNow);
+            Check(ReferenceEquals(watcher.Expand(point), child), "A new boxed struct replaced the expanded watcher.");
+            child.SampleNow();
+            Check(ReferenceEquals(child.Values.Single(value => value.Name == "X"), x) && (float)x.Value! == 10 + i, "An expanded component lost its identity or stopped following its parent.");
+        }
+        Check(x.Timeline.Count == 7, "Expanded component history was cleared between parent updates.");
+        sample.Point = new(50, 95); point.Sample(DateTime.UtcNow);
+        x.ApplyAsync("75").GetAwaiter().GetResult();
+        Check(sample.Point == new Vector2(75, 95), "Editing X overwrote the parent's newer Y component.");
+        Check((Vector2)point.Timeline.GetSnapshots()[0].Value! == new Vector2(10, 20), "Editing a component mutated a historical boxed snapshot.");
+    }
     static void Runtime(string result)
     {
         using var app = new NativeWindow("Project-Z debugger acceptance target", 1100, 720);
@@ -213,6 +241,25 @@ static class Program
         int stableTreeFrames = 0;
         string? frozenPlotHash = null;
         int samplesAtFreeze = 0;
+        int glowStage = 0, restartFrame = 0, peakGreen = 0, fadingGreen = 0;
+        long glowStarted = 0;
+        float peakOpacity = 0, fadingOpacity = 0;
+        DebugWatcher? pointChild = null;
+        DebugValue? selectedComponent = null;
+        UpdatingTreeText IdleRow() => (UpdatingTreeText)inspector!.TreeRows.Single(row => row.Text.Contains("IdleValue:"));
+        int GreenPixels(string suffix)
+        {
+            string path = result + suffix + ".png"; inspector!.SaveFrame(path);
+            using var image = new System.Drawing.Bitmap(path);
+            var row = IdleRow(); int green = 0;
+            for (int y = (int)row.Position.Y - 3; y < row.Position.Y + row.Size.Y + 3; y++)
+                for (int x = (int)row.Position.X; x < row.Position.X + row.Size.X; x++)
+                {
+                    var pixel = image.GetPixel(x, y);
+                    if (pixel.G > 30 && pixel.G > pixel.R + 3 && pixel.G > pixel.B + 3) green++;
+                }
+            return green;
+        }
         string PlotHash(string suffix)
         {
             var path = result + suffix + ".png"; inspector!.SaveFrame(path);
@@ -224,6 +271,7 @@ static class Program
         }
         app.Ready += () =>
         {
+            app.UseScriptedInput();
             app.Label("Project-Z native debugger acceptance", 30, 25, 1000, 20);
             watcher = new(sample); watcher.AttachScene(app.Scene); watcher.StartSession();
             RootDiscovery.Register(app.Scene);
@@ -234,6 +282,7 @@ static class Program
             if (frames == 10)
             {
                 inspector = new DebugWindow(); inspector.Show();
+                inspector.Surface.UseScriptedInput();
                 inspector.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Number)));
             }
             if (frames == 30 && !editQueued)
@@ -345,6 +394,35 @@ static class Program
             }
             if (frames == 86) Check(PlotHash(".resumed") != frozenPlotHash, "Returning Max to 100% did not resume the live graph.");
             if (frames == 90) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Boolean)));
+            if (frames == 92)
+            {
+                Check(IdleRow().GlowOpacity == 0, "An unchanged tree value acquired a glow from row reuse or selection.");
+                sample.IdleValue = 1; watcher!.Values.Single(value => value.Name == nameof(Sample.IdleValue)).Sample(DateTime.UtcNow);
+                glowStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+            if (frames == 93)
+            {
+                peakOpacity = IdleRow().GlowOpacity; peakGreen = GreenPixels(".glow-peak");
+                Check(peakOpacity > 0 && peakGreen > 10, "A recorded tree update did not render a green text underglow.");
+                glowStage = 1;
+            }
+            if (glowStage == 1 && System.Diagnostics.Stopwatch.GetElapsedTime(glowStarted).TotalSeconds >= UpdatingTreeText.FadeSeconds * .3)
+            {
+                fadingOpacity = IdleRow().GlowOpacity; fadingGreen = GreenPixels(".glow-fading");
+                Check(fadingOpacity > 0 && fadingOpacity < peakOpacity && fadingGreen > 0 && fadingGreen < peakGreen, "The green text underglow did not fade gradually between updates.");
+                sample.IdleValue = 2; watcher!.Values.Single(value => value.Name == nameof(Sample.IdleValue)).Sample(DateTime.UtcNow);
+                glowStarted = System.Diagnostics.Stopwatch.GetTimestamp(); restartFrame = frames + 1; glowStage = 2;
+            }
+            if (glowStage == 2 && frames == restartFrame)
+            {
+                Check(IdleRow().GlowOpacity > fadingOpacity && GreenPixels(".glow-restarted") > fadingGreen, "A new update did not restart the underglow fade.");
+                glowStage = 3;
+            }
+            if (glowStage == 3 && System.Diagnostics.Stopwatch.GetElapsedTime(glowStarted).TotalSeconds >= UpdatingTreeText.FadeSeconds + .15)
+            {
+                Check(IdleRow().GlowOpacity == 0 && GreenPixels(".glow-transparent") == 0, "The underglow did not return fully to transparent.");
+                glowStage = 4;
+            }
             if (frames == 95) inspector!.SaveFrame(result + ".boolean.png");
             if (frames == 100) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Point)));
             if (frames == 105) inspector!.DispatchClick(380, 75);
@@ -352,7 +430,30 @@ static class Program
             if (frames == 120) { inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Tint))); inspector.DispatchClick(380, 75); }
             if (frames == 130) inspector!.SaveFrame(result + ".events.png");
             if (frames == 135) { inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Number))); inspector.DispatchClick(380, 75); }
-            if (frames > 160)
+            if (frames >= 140 && frames <= 175) sample.Point = new(frames, frames * 2);
+            if (frames == 140)
+            {
+                var row = inspector!.TreeRows.Single(row => row.Text.Contains("Point:"));
+                inspector.DispatchClick((int)row.Position.X + 5, (int)row.Position.Y + 8);
+                var point = watcher!.Values.Single(value => value.Name == nameof(Sample.Point));
+                pointChild = watcher.Children.Single(child => child.ParentValueGuid == point.Guid);
+                selectedComponent = pointChild.Values.Single(value => value.Name == "X");
+                Check(selectedComponent.Value is float, "Expanding a struct exposed an uninitialized null component.");
+            }
+            if (frames == 142)
+            {
+                var row = inspector!.TreeRows.Single(row => row.Text.TrimStart().StartsWith("X:"));
+                inspector.DispatchClick((int)row.Position.X + 32, (int)row.Position.Y + 8);
+                Check(ReferenceEquals(inspector.SelectedValue, selectedComponent), "Clicking X selected the wrong child value.");
+            }
+            if (frames == 178)
+            {
+                Check(ReferenceEquals(inspector!.SelectedValue, selectedComponent) && ReferenceEquals(watcher!.Children.Single(child => child.ParentValueGuid == pointChild!.ParentValueGuid), pointChild), "Updating the parent replaced the selected child watcher.");
+                Check(selectedComponent!.Value is float x && x >= 170 && selectedComponent.Timeline.Count > 5, "Selected X stopped updating or lost its numeric history.");
+                Check(inspector.Plot.Timeline == selectedComponent.Timeline && inspector.Plot.Labels.Any(label => label.StartsWith("Value ")), "Clicking X did not keep a numeric graph.");
+                inspector.SaveFrame(result + ".selected-component.png");
+            }
+            if (frames > 180 && glowStage == 4)
             {
                 Check(inspector?.IsVisible == true, "Native debugger did not remain visible.");
                 Check(stableTreeFrames == 24, "Sustained watcher tree rendering was not checked.");
@@ -362,7 +463,7 @@ static class Program
                 var hwnd = global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(app);
                 Check(hwnd != IntPtr.Zero, "No real HWND was created.");
                 inspector!.SaveFrame(result + ".png");
-                File.WriteAllText(result, "PASS native HWND, frozen graph pixel stability while recording, Max=100 live resume, numeric/time axes, dual-thumb drag/pan/keyboard/Min-Max input, spelling disabled, tree open/closed/leaf states, property hook UI and same-frame changes, scene-thread editing, 24 consecutive watcher-tree frames without blanking or text bleed");
+                File.WriteAllText(result, $"PASS native HWND, selected expanded X stays numeric with stable selection and accumulated history, green tree text underglow ({peakGreen} to {fadingGreen} to 0 pixels), fade restart on update, no false pulse on unchanged values or reused rows, frozen graph pixel stability while recording, Max=100 live resume, numeric/time axes, dual-thumb drag/pan/keyboard/Min-Max input, spelling disabled, tree open/closed/leaf states, property hook UI and same-frame changes, scene-thread editing, 24 consecutive watcher-tree frames without blanking or text bleed");
                 inspector!.Dispose(); watcher.Dispose(); app.Exit();
             }
         };

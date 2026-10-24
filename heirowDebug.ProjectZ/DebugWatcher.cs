@@ -58,7 +58,8 @@ public sealed class ValueTimeline
     public void Clear() { lock (gate) { samples.Clear(); latest = null; } }
     internal static object? SnapshotValue(object? value)
     {
-        if (value is string || value is null || value.GetType().IsValueType) return value;
+        if (value is string || value is null) return value;
+        if (value.GetType().IsValueType) return RuntimeHelpers.GetObjectValue(value);
         if (value is IDictionary dictionary)
         {
             var entries = new List<string>(); var iterator = dictionary.GetEnumerator();
@@ -84,6 +85,8 @@ public sealed class DebugValue
     readonly string? customName;
     readonly Type? customType;
     readonly object recordGate = new();
+    long lastChangedTimestamp;
+    bool hasSample;
     IDisposable? propertyHook;
     internal DebugValue(DebugWatcher owner, MemberInfo member) { this.owner = owner; Member = member; }
     internal DebugValue(DebugWatcher owner, string name, Type type, Func<object?> getter, Action<object?>? setter = null)
@@ -100,6 +103,7 @@ public sealed class DebugValue
     public string? ObservationError { get; private set; }
     public bool CanHookProperty => Member is PropertyInfo && !owner.TargetType.IsValueType;
     internal bool IsObservationEnabled => owner.IsObservationEnabled;
+    internal long LastChangedTimestamp => Volatile.Read(ref lastChangedTimestamp);
     internal bool MatchesInstance(object? instance) => owner.IsStaticRoot ? instance is null : ReferenceEquals(instance, owner.AttachedObject);
     public bool TryEnablePropertyHooks(out string? error)
     {
@@ -118,13 +122,19 @@ public sealed class DebugValue
     internal void Record(object? value, DateTime now)
     {
         bool changed;
-        lock (recordGate) { Value = value; Error = ObservationError = null; changed = Timeline.Add(value, now); }
+        lock (recordGate)
+        {
+            Value = value; Error = ObservationError = null; changed = Timeline.Add(value, now);
+            if (changed && hasSample) Volatile.Write(ref lastChangedTimestamp, System.Diagnostics.Stopwatch.GetTimestamp());
+            hasSample = true;
+        }
         owner.Recorded(this, changed);
     }
     internal void RecordObservationError(Exception ex) => ObservationError = (ex.InnerException ?? ex).Message;
     public Task ApplyAsync(string text, bool alsoSetBackingField = false) => owner.DispatchAsync(() =>
     {
         if (!CanWrite) throw new InvalidOperationException("This member is read-only.");
+        if (!owner.RefreshValueTypeTarget(readParent: true)) throw new InvalidOperationException("The parent value is no longer available.");
         var value = ConvertText(text, Type);
         WriteRaw(value);
         if (alsoSetBackingField && Member is PropertyInfo)
@@ -207,7 +217,7 @@ public sealed class DebugWatcher : IDisposable
     public static DebugWindow? DebugWindow { get; private set; }
     public string Guid { get; } = System.Guid.NewGuid().ToString();
     public string Name { get; }
-    public object? AttachedObject { get; }
+    public object? AttachedObject { get; private set; }
     public Type TargetType { get; }
     public bool IsStaticRoot { get; }
     public bool IsRecursive { get; set; }
@@ -223,10 +233,23 @@ public sealed class DebugWatcher : IDisposable
     internal bool HasChangeNotifications => notifications is not null;
     internal bool IsObservationEnabled => !disposed && isEnabled;
     internal bool CanWriteChildren => !TargetType.IsValueType || parentValueSource?.CanWrite == true;
+    internal bool RefreshValueTypeTarget(bool readParent = false)
+    {
+        if (!TargetType.IsValueType || parentValueSource is null) return true;
+        if (readParent && Parent?.RefreshValueTypeTarget(readParent: true) == false) return false;
+        var current = readParent ? parentValueSource.Read() : parentValueSource.Value;
+        if (current is null || current.GetType() != TargetType) return false;
+        // A member's new boxed value is still the same expanded tree node.
+        // Keep its DebugValues/timelines, but use a fresh box for field edits.
+        AttachedObject = RuntimeHelpers.GetObjectValue(current);
+        return true;
+    }
     internal void PropagateValueType()
     {
         if (!TargetType.IsValueType || parentValueSource is null) return;
+        if (Parent?.RefreshValueTypeTarget(readParent: true) == false) throw new InvalidOperationException("The parent value is no longer available.");
         parentValueSource.WriteRaw(AttachedObject); Parent?.PropagateValueType();
+        parentValueSource.Sample(DateTime.UtcNow);
     }
     public event Action<DebugWatcher, DebugValue>? ValueChanged;
     public event Action<DebugWatcher, DebugValue>? ValueCalculated;
@@ -343,6 +366,7 @@ public sealed class DebugWatcher : IDisposable
             nextSample = now + Math.Max(1, (long)Utils.IntervalMilliseconds);
             lock (gate)
             {
+                if (!RefreshValueTypeTarget()) return;
                 RefreshCollectionMembers();
                 for (int i = 0; i < Math.Min(values.Count, Math.Max(1, MaximumMembersPerPass)); i++)
                 {
@@ -396,13 +420,16 @@ public sealed class DebugWatcher : IDisposable
         lock (RegistryGate)
         {
             var existing = children.FirstOrDefault(c => c.ParentValueGuid == value.Guid);
-            if (existing is not null && ReferenceEquals(existing.AttachedObject, value.Value)) return existing;
+            if (existing is not null && (ReferenceEquals(existing.AttachedObject, value.Value) ||
+                existing.TargetType.IsValueType && existing.TargetType == value.Value!.GetType())) return existing;
             existing?.Dispose();
             if (registry.Count >= MaximumWatcherCount || children.Count >= MaximumChildWatchersPerParent) return null;
             var child = new DebugWatcher(value.Value, value.Value!.GetType(), IsRecursive, value.Name, this, false);
             child.ParentValueGuid = value.Guid;
             child.parentValueSource = value;
-            children.Add(child); if (isEnabled) child.StartSession(); return child;
+            children.Add(child);
+            if (isEnabled) { child.StartSession(); child.SampleNow(); }
+            return child;
         }
     }
     internal Task DispatchAsync(Action action)

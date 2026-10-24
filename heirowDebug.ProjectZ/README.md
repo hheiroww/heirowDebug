@@ -7,15 +7,16 @@ is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
 launcher/injector and protection tool use Project-Z scenes and native controls.
 It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.3)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.4)
 
 The recording shows the production native inspector watching sample telemetry
 with 16x AA/AF: labeled numeric axes and current values, a spatial trace,
 boolean state bands, property-access hooks and a frozen history range while
-background recording continues.
+background recording continues. Changed tree values show a green glow behind
+their text, fading to transparent over one second; another change restarts it.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.3
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.4
 ```
 
 ```csharp
@@ -55,6 +56,17 @@ Graph axes show numeric scales and elapsed time where applicable; channel
 labels show the latest visible values. Tree arrows distinguish expanded and
 collapsed objects, while scalar leaves have no arrow. Value and range inputs
 disable spelling.
+
+Each changed tree value pulses with a green glyph-shaped underglow that fades
+to transparent in one second. Updates from sampling, notifications and property
+hooks all restart the fade. Unchanged reads, selection and expanding or scrolling
+the tree do not create an update pulse. The text stays readable throughout, and
+initial observations have no pulse.
+
+Expanded struct components such as `Position.X` and `Position.Y` retain their
+selection and history while the parent changes. New children are sampled on
+expansion. Editing one component preserves the parent's other current values,
+and historical struct snapshots remain unchanged.
 
 ## Event-driven property capture
 

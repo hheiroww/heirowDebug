@@ -37,7 +37,9 @@ synthetic telemetry, with 16x anti-aliasing and 16x anisotropic filtering.
 It contains 96 frames at 10 fps, displayed at 1024 by 640 pixels. The recording
 shows labeled numeric/time axes, current values, accessor hooks, dragging both
 history-range endpoints, a frozen graph while background telemetry continues,
-a live spatial trace and boolean state bands.
+selecting an expanded `Position.X` component without losing its history,
+a live spatial trace, boolean state bands and green text underglows that fade
+after each tree value update.
 
 Capture fresh frames into an empty output directory:
 
