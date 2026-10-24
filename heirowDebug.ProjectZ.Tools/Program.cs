@@ -112,9 +112,23 @@ sealed class CompanionWindow : NativeWindow
     protected override void Dispose(bool disposing) { if (disposing) { inspector?.Dispose(); demoWatcher?.Dispose(); } base.Dispose(disposing); }
     sealed class Telemetry
     {
-        public double Speed { get; set; }
-        public bool Running { get; set; }
-        public Microsoft.Xna.Framework.Vector2 Position { get; set; }
+        // Keep the interactive example observable when hooks are enabled after
+        // the scene callback has been JITted, matching the recording harness.
+        public double Speed
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
+        public bool Running
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
+        public Microsoft.Xna.Framework.Vector2 Position
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
         public Color Tint { get; set; } = new(84, 218, 195);
         public List<int> Values { get; set; } = [1, 2, 3];
         public string Status { get; set; } = "Project-Z native renderer";
