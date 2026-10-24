@@ -52,7 +52,7 @@ Get the libraries from NuGet: [heirowDebug.WPF](https://www.nuget.org/packages/h
 and [heirowDebug.ProjectZ](https://www.nuget.org/packages/heirowDebug.ProjectZ/),
 or [GitHub Packages](https://github.com/hheiroww?tab=packages&repo_name=heirowDebug).
 
-## Latest release
+## Portable tools and NuGet packages
 
 [2026.10.23.5 on GitHub](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.5)
 includes self-contained Windows x64 tools and both debugger packages:
@@ -66,17 +66,17 @@ includes self-contained Windows x64 tools and both debugger packages:
 Extract the entire ZIP before running its EXE. .NET 10 is included.
 `SHA256SUMS.txt` accompanies the release downloads.
 
-The installer links below are the previous **2026.10.17.1** standalone release.
+The current standalone installers are **2026.10.24.1**.
 
 ## Download and build
 
-Get version **2026.10.17.1** from [GitHub Releases](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.17.1). Windows x64 installers include .NET 10 and create branded Start menu shortcuts; desktop shortcuts are optional. Installation is per user and does not require administrator access.
+Get version **2026.10.24.1** from [GitHub Releases](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.24.1). These self-contained Windows x64 setups include .NET 10 and their own heirowInstaller maintenance host. Installation is per user and does not require administrator access or a separate heirowInstaller installation. Optional heirowUpdater installs in the app folder, starts with the app, and checks after the app closes; an available update offers **Update now** or **Postpone**.
 
-| Software | Installer | Portable archive |
+| Software | Installer | Previous portable archive (2026.10.17.1) |
 | --- | --- | --- |
-| heirowDebug live debugger / injector | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-2026.10.17.1-windows-x64.zip) |
-| heirowDotNetShield protection tool | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDotNetShield-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDotNetShield-2026.10.17.1-windows-x64.zip) |
-| Project-Z starter sample | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-ProjectZ-2026.10.17.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-ProjectZ-2026.10.17.1-windows-x64.zip) |
+| heirowDebug live debugger / injector | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.24.1/heirowDebug-2026.10.24.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-2026.10.17.1-windows-x64.zip) |
+| heirowDotNetShield protection tool | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.24.1/heirowDotNetShield-2026.10.24.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDotNetShield-2026.10.17.1-windows-x64.zip) |
+| Project-Z starter sample | [Download Setup EXE](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.24.1/heirowDebug-ProjectZ-2026.10.24.1-windows-x64-Setup.exe) | [ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.17.1/heirowDebug-ProjectZ-2026.10.17.1-windows-x64.zip) |
 
 Extract an entire portable ZIP before running its EXE. The native Shield launcher and all supporting files are included with Shield. The Project-Z download runs the included starter scene.
 
