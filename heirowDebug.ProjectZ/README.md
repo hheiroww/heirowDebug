@@ -5,9 +5,9 @@
 Native Project-Z live debugging for .NET 10 Windows applications. This package
 is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
 launcher/injector and protection tool use Project-Z scenes and native controls.
-It depends on the publicly published `ProjectZ 2026.10.20.1` package.
+It depends on the publicly published `ProjectZ 2026.10.23.2` package.
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.4)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.5)
 
 The recording shows the production native inspector watching sample telemetry
 with 16x AA/AF: labeled numeric axes and current values, a spatial trace,
@@ -16,7 +16,7 @@ background recording continues. Changed tree values show a green glow behind
 their text, fading to transparent over one second; another change restarts it.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.4
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.5
 ```
 
 ```csharp
@@ -146,7 +146,7 @@ inventory. Choose an empty output folder outside the original deployment. The
 original deployment is preserved. This protection does not prevent administrator
 or arbitrary native memory access.
 
-ProjectZ 2026.10.20.1 supplies a self-contained diagnostics observer carrying its
+ProjectZ 2026.10.23.2 supplies a self-contained diagnostics observer carrying its
 own runtime. The debugger ships that executable intact. A self-contained tools
 publish includes the application's runtime as well; neither requires installing
 the .NET 8 desktop runtime separately.

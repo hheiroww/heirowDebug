@@ -1,6 +1,6 @@
 # Windows installation
 
-The current [2026.10.23.4 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.4)
+The current [2026.10.23.5 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.5)
 includes self-contained Windows x64 portable ZIPs for the native Project-Z tools
 and WPF injector, plus `heirowDebug.ProjectZ` and `heirowDebug.WPF` NuGet archives.
 Extract a complete ZIP into its own folder before running the application.

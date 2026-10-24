@@ -4,7 +4,7 @@
 
 **Live objects. Clear timelines. Visual debugging.**
 
-Version 2026.10.23.4 · Windows · .NET 10
+Version 2026.10.23.5 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
@@ -13,9 +13,9 @@ heirowDebug provides live object inspection, editing and typed timelines for WPF
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.4
+dotnet add package heirowDebug.WPF --version 2026.10.23.5
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.4
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.5
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
@@ -54,14 +54,14 @@ or [GitHub Packages](https://github.com/hheiroww?tab=packages&repo_name=heirowDe
 
 ## Latest release
 
-[2026.10.23.4 on GitHub](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.4)
+[2026.10.23.5 on GitHub](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.5)
 includes self-contained Windows x64 tools and both debugger packages:
 
 | Download | Contents |
 | --- | --- |
-| [Project-Z tools ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug-ProjectZ-2026.10.23.4-windows-x64.zip) | Native injector, inspector, protection tool and live demo; run `heirowDebug.ProjectZ.Tools.exe` |
-| [WPF injector ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug-WPF-2026.10.23.4-windows-x64.zip) | WPF injector and live inspector; run `heirowDebug.exe` |
-| [Project-Z package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug.ProjectZ.2026.10.23.4.nupkg) / [WPF package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.4/heirowDebug.WPF.2026.10.23.4.nupkg) | NuGet library archives |
+| [Project-Z tools ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.5/heirowDebug-ProjectZ-2026.10.23.5-windows-x64.zip) | Native injector, inspector, protection tool and live demo; run `heirowDebug.ProjectZ.Tools.exe` |
+| [WPF injector ZIP](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.5/heirowDebug-WPF-2026.10.23.5-windows-x64.zip) | WPF injector and live inspector; run `heirowDebug.exe` |
+| [Project-Z package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.5/heirowDebug.ProjectZ.2026.10.23.5.nupkg) / [WPF package](https://github.com/hheiroww/heirowDebug/releases/download/v2026.10.23.5/heirowDebug.WPF.2026.10.23.5.nupkg) | NuGet library archives |
 
 Extract the entire ZIP before running its EXE. .NET 10 is included.
 `SHA256SUMS.txt` accompanies the release downloads.
@@ -101,7 +101,7 @@ See [Windows installation options](packaging/README.md) for installer and portab
 Add the library to your WPF application from NuGet:
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.4
+dotnet add package heirowDebug.WPF --version 2026.10.23.5
 ```
 
 The older `2026.10.17.1` package is distributed with that GitHub release. Current package instructions are listed above. Existing callers of `JackDebug.WPF` must update their package reference and imports to `heirowDebug.WPF`.
@@ -151,7 +151,7 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 
 ### Native Project-Z
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.4)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.5)
 
 A 9.6-second recording of the native inspector watching sample telemetry, with
 16x AA/AF, labeled numeric/time axes, live accessor hooks, a frozen history range,
