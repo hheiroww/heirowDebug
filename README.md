@@ -259,6 +259,18 @@ direct memory access on the same computer. Modern .NET does not provide a secure
 "allow reflection only when the caller is this DLL" permission once foreign code
 is already executing in the process.
 
+## Application updates
+
+Desktop applications support an optional `heirowUpdater.exe` and `heirowUpdater.json`
+in their own installation directory. The companion starts with the application,
+waits until its instances exit, and checks the configured publisher over SocketJack.
+Available updates offer **Update now** or **Postpone**. Neither application startup
+nor updating requires a globally installed heirowInstaller.
+
+Application code can call `SocketJack.HeirowUpdaterBootstrap.CheckForUpdates()` to
+open a manual check. Without the optional companion files, that call returns `false`
+and the application continues normally.
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first

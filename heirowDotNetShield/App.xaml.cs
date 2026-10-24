@@ -41,7 +41,10 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        global::SocketJack.HeirowUpdaterBootstrap.StartAfterExit();
         MainWindow = new MainWindow();
         MainWindow.Show();
     }
+
+    public static bool CheckForUpdates() => global::SocketJack.HeirowUpdaterBootstrap.CheckForUpdates();
 }

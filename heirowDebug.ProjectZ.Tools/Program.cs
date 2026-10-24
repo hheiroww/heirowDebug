@@ -25,6 +25,7 @@ internal static class Program
                 var result = InjectorService.RestartAndInjectAsync(target).GetAwaiter().GetResult(); File.WriteAllText(resultPath, result); return 0;
             }
             if (args is ["--ui-check", var checkPath]) { using var check = new ToolWindow(checkPath); check.Run(); return 0; }
+            global::SocketJack.HeirowUpdaterBootstrap.StartAfterExit();
             using NativeWindow app = args is ["--protect-ui"] ? new CompanionWindow() : args is ["--demo"] ? new CompanionWindow(true) : new ToolWindow();
             app.Run(); return 0;
         }
