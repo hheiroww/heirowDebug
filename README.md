@@ -8,6 +8,8 @@ Version 2026.10.23.4 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
+[Support heirowDebug](SPONSORING.md) · Optional GitHub sponsorship, with planned monthly tiers from $1 to $100.
+
 ## Current packages and Project-Z tools
 
 ```powershell
