@@ -4,16 +4,16 @@
 
 **Live objects. Clear timelines. Visual debugging.**
 
-Version 2026.10.23.2 · Windows · .NET 10
+Version 2026.10.23.3 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.2
+dotnet add package heirowDebug.WPF --version 2026.10.23.3
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.2
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.3
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
@@ -34,6 +34,8 @@ are bounded. XNA points, vectors, rectangles and colors have native visualizatio
 The native inspector shows numeric/time axes, current channel values and accurate
 open/closed tree arrows. A dual-thumb history slider, imported from the WPF XAML,
 has editable Min/Max percentages; value inputs disable spelling.
+Moving Max below 100% freezes the graph as a snapshot while recording continues.
+Min/Max then navigate that captured history. Set Max to 100% to resume live updates.
 
 `INotifyPropertyChanged` properties update from change events. Select an ordinary
 managed property and choose **Hook get/set** to capture accessor calls immediately,
@@ -128,10 +130,10 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 
 ### Native Project-Z
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.3)
 
 A 9.6-second recording of the native inspector watching sample telemetry, with
-16x AA/AF, labeled numeric/time axes, live accessor hooks, a dual-thumb range,
+16x AA/AF, labeled numeric/time axes, live accessor hooks, a frozen history range,
 a spatial trace and boolean state bands.
 
 ### WPF

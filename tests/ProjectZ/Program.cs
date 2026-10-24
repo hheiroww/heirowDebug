@@ -13,7 +13,7 @@ static class Program
         {
             if (args is ["--runtime", var result]) { Runtime(result); return 0; }
             if (args is ["--protected-runtime", var executable, var resultFile]) { ProtectedRuntime(executable, resultFile); return 0; }
-            Core(); Observation(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles, native visualization types, notifications and getter/setter hooks"); return 0;
+            Core(); Observation(); SnapshotSelection(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles, native visualization types, notifications, getter/setter hooks and frozen history selection"); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
@@ -167,12 +167,61 @@ static class Program
         Check(notifying.GetterCalls == afterDispose, "Disposing a watcher retained its property notification handler.");
         Utils.Profile = Utils.DebugProfile.Fast;
     }
+    static void SnapshotSelection()
+    {
+        int retention = ValueTimeline.MaximumSnapshotsPerValue;
+        try
+        {
+            ValueTimeline.MaximumSnapshotsPerValue = 32;
+            var time = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var timeline = new ValueTimeline();
+            for (int i = 0; i < 32; i++) timeline.Add(i, time.AddSeconds(i));
+            var view = new HistorySelection { Timeline = timeline, Lower = .25, Upper = .75 };
+            var frozen = view.Read(time.AddSeconds(32));
+            Check(frozen.IsSnapshot && frozen.Samples.Select(sample => (int)sample.Value!).SequenceEqual(Enumerable.Range(8, 16)), "Max did not capture the selected historical range.");
+            for (int i = 32; i < 128; i++) timeline.Add(i, time.AddSeconds(i));
+            var later = view.Read(time.AddSeconds(200));
+            Check(later.Samples.SequenceEqual(frozen.Samples) && later.EndTime == frozen.EndTime, "Snapshot samples or the time axis changed after live retention rolled over.");
+            view.Upper = .875;
+            Check((int)view.Read(time.AddSeconds(201)).Samples[^1].Value! == 27, "Adjusting Max inside a snapshot loaded new live history.");
+            view.Lower = .5;
+            Check((int)view.Read(time.AddSeconds(202)).Samples[0].Value! == 16, "Adjusting Min lost the captured history's coordinates.");
+            view.Upper = 1;
+            var live = view.Read(time.AddSeconds(203));
+            Check(!live.IsSnapshot && (int)live.Samples[^1].Value! == 127 && live.EndTime == time.AddSeconds(203), "Max at 100% did not resume live updates.");
+            view.Upper = .9999;
+            var nearEnd = view.Read(time.AddSeconds(204));
+            Check(nearEnd.IsSnapshot && view.Read(time.AddSeconds(220)).EndTime == nearEnd.EndTime, "A Max just below 100% kept advancing the clock.");
+            view.Lower = view.Upper;
+            Check(view.Read(time.AddSeconds(221)).Samples.Length == 1, "A collapsed range showed samples beyond its endpoint.");
+            var other = new ValueTimeline(); other.Add(1000, time);
+            view.Timeline = other;
+            Check((int)view.Read(time.AddSeconds(222)).Samples.Single().Value! == 1000, "Selecting another value reused the previous value's frozen history.");
+            var empty = new ValueTimeline(); view.Timeline = empty;
+            empty.Add(2000, time);
+            Check(view.Read(time.AddSeconds(223)).Samples.Length == 0, "An empty captured snapshot admitted newly recorded values.");
+            view.Upper = 1;
+            Check((int)view.Read(time.AddSeconds(224)).Samples.Single().Value! == 2000, "Resuming an empty snapshot did not show new data.");
+        }
+        finally { ValueTimeline.MaximumSnapshotsPerValue = retention; }
+    }
     static void Runtime(string result)
     {
         using var app = new NativeWindow("Project-Z debugger acceptance target", 1100, 720);
         DebugWatcher? watcher = null; DebugWindow? inspector = null;
         var sample = new Sample(); int frames = 0; bool editQueued = false; Task? editTask = null;
         int stableTreeFrames = 0;
+        string? frozenPlotHash = null;
+        int samplesAtFreeze = 0;
+        string PlotHash(string suffix)
+        {
+            var path = result + suffix + ".png"; inspector!.SaveFrame(path);
+            using var image = new System.Drawing.Bitmap(path);
+            var plot = inspector.Plot;
+            using var crop = image.Clone(new System.Drawing.Rectangle((int)plot.Position.X, (int)plot.Position.Y, (int)plot.Size.X, (int)plot.Size.Y), System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var bytes = new MemoryStream(); crop.Save(bytes, System.Drawing.Imaging.ImageFormat.Png);
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes.ToArray()));
+        }
         app.Ready += () =>
         {
             app.Label("Project-Z native debugger acceptance", 30, 25, 1000, 20);
@@ -280,7 +329,22 @@ static class Program
                 sample.Text = "scene-thread write";
                 inspector.HistoryRange.SetRange(0, 100);
             }
-            if (frames == 85) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Boolean)));
+            if (frames == 80)
+            {
+                inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Number)));
+                inspector.HistoryRange.UpperValue = 75;
+                samplesAtFreeze = inspector.SelectedValue!.Timeline.Count;
+            }
+            if (frames == 82) frozenPlotHash = PlotHash(".snapshot-before");
+            if (frames == 84)
+            {
+                Check(inspector!.SelectedValue!.Timeline.Count > samplesAtFreeze, "Background recording stopped when Max was changed.");
+                Check(inspector.Plot.IsSnapshot && inspector.Plot.Summary.StartsWith("Snapshot"), "The frozen graph did not identify snapshot mode.");
+                Check(PlotHash(".snapshot-after") == frozenPlotHash, "The snapshot graph changed while new live samples arrived.");
+                inspector.HistoryRange.UpperValue = 100;
+            }
+            if (frames == 86) Check(PlotHash(".resumed") != frozenPlotHash, "Returning Max to 100% did not resume the live graph.");
+            if (frames == 90) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Boolean)));
             if (frames == 95) inspector!.SaveFrame(result + ".boolean.png");
             if (frames == 100) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Point)));
             if (frames == 105) inspector!.DispatchClick(380, 75);
@@ -298,7 +362,7 @@ static class Program
                 var hwnd = global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(app);
                 Check(hwnd != IntPtr.Zero, "No real HWND was created.");
                 inspector!.SaveFrame(result + ".png");
-                File.WriteAllText(result, "PASS native HWND, numeric/time axes, dual-thumb drag/pan/keyboard/Min-Max input, spelling disabled, tree open/closed/leaf states, property hook UI and same-frame changes, scene-thread editing, 24 consecutive watcher-tree frames without blanking or text bleed");
+                File.WriteAllText(result, "PASS native HWND, frozen graph pixel stability while recording, Max=100 live resume, numeric/time axes, dual-thumb drag/pan/keyboard/Min-Max input, spelling disabled, tree open/closed/leaf states, property hook UI and same-frame changes, scene-thread editing, 24 consecutive watcher-tree frames without blanking or text bleed");
                 inspector!.Dispose(); watcher.Dispose(); app.Exit();
             }
         };

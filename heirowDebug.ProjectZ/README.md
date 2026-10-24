@@ -7,14 +7,15 @@ is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
 launcher/injector and protection tool use Project-Z scenes and native controls.
 It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 
-![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
+![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.3)
 
 The recording shows the production native inspector watching sample telemetry
 with 16x AA/AF: labeled numeric axes and current values, a spatial trace,
-boolean state bands, property-access hooks and a dual-thumb history range.
+boolean state bands, property-access hooks and a frozen history range while
+background recording continues.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.2
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.3
 ```
 
 ```csharp
@@ -42,6 +43,11 @@ a dual-thumb history range with editable Min/Max percentages, and Auto, Time
 series, Spatial overlay and Events views. The range uses the actual WPF
 `RangeSlider` XAML through a native adapter. Drag either endpoint, drag the
 selected interval to pan it, or use arrow keys (Space switches endpoints).
+Moving Max below 100% freezes a copy of that value's history: incoming samples
+and retention rollover cannot shift its graph, value labels or time axis.
+Adjusting Min/Max continues to navigate the captured history. Recording continues
+in the background; set Max to 100% to resume the live graph. Selecting a different
+value captures that value's history when Max remains below 100%.
 Numbers,
 booleans, categories, colors, XNA geometry and ordinary .NET geometry have typed
 visualizations. Sampling profiles match the WPF rates and retention limits.

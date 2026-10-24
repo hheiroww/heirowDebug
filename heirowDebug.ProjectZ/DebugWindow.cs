@@ -161,7 +161,14 @@ public sealed class DebugWindow : IDisposable
         range = (HistoryRangeSlider)parser.Parse(native.OuterXml); window.Add(range);
         minLabel = window.Label("Min %", 0, 0, 43, 10); maxLabel = window.Label("Max %", 0, 0, 46, 10);
         rangeMin = window.Input(0, 0, 62, "0"); rangeMax = window.Input(0, 0, 62, "100");
-        range.RangeChanged += () => { plot.Lower = range.LowerValue / 100; plot.Upper = range.UpperValue / 100; SyncRangeEditors(); };
+        range.RangeChanged += () =>
+        {
+            bool wasSnapshot = plot.IsSnapshot;
+            plot.Lower = range.LowerValue / 100; plot.Upper = range.UpperValue / 100;
+            if (status is not null && wasSnapshot != plot.IsSnapshot)
+                status.Text = plot.IsSnapshot ? "Snapshot frozen. Recording continues; set Max to 100% to resume live history." : "Following live history.";
+            SyncRangeEditors();
+        };
         void ReadRange(Textbox input, bool lower)
         {
             if (syncingRange || !double.TryParse(input.Text, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value)) return;

@@ -65,6 +65,7 @@ internal sealed class HistoryPlot : SceneElement
 {
     Texture2D? pixel;
     readonly TextElement[] labels;
+    readonly HistorySelection history = new();
     int labelIndex;
     public IReadOnlyList<string> Labels => labels.Where(label => label.isVisible).Select(label => label.Text).ToArray();
     public HistoryPlot(Scene scene) : base(scene)
@@ -86,11 +87,12 @@ internal sealed class HistoryPlot : SceneElement
         if (label.Text != text) label.Text = text;
         label.Position = new(x, y); label.Size = new(width, 22); label.ForegroundColor = color ?? new(194, 208, 219); label.isVisible = true;
     }
-    public ValueTimeline? Timeline { get; set; }
+    public ValueTimeline? Timeline { get => history.Timeline; set => history.Timeline = value; }
     public VisualizationMode Mode { get; set; }
     public double Compression { get; set; }
-    public double Lower { get; set; }
-    public double Upper { get; set; } = 1;
+    public double Lower { get => history.Lower; set => history.Lower = value; }
+    public double Upper { get => history.Upper; set => history.Upper = value; }
+    public bool IsSnapshot => history.IsSnapshot;
     public bool Invert { get; set; } = true;
     public string Summary { get; private set; } = "Select a value to visualize its live history.";
     public string EventText { get; private set; } = "";
@@ -111,19 +113,21 @@ internal sealed class HistoryPlot : SceneElement
         }
         var bounds = new Rectangle((int)Position.X, (int)Position.Y, (int)Size.X, (int)Size.Y);
         Fill(bounds.X, bounds.Y, bounds.Width, bounds.Height, new Color(25, 31, 38));
-        var source = Timeline?.GetSnapshots() ?? [];
-        int start = Math.Clamp((int)(source.Length * Lower), 0, Math.Max(0, source.Length - 1));
-        int count = Math.Max(0, Math.Min(source.Length - start, (int)Math.Ceiling(source.Length * Math.Max(.01, Upper - Lower))));
-        var normalized = source.Skip(start).Take(count).Select(Visualization.Normalize).ToArray();
-        if (normalized.Length == 0) { Summary = "Select a value to visualize its live history."; EventText = ""; return; }
+        var view = history.Read(DateTime.UtcNow);
+        var normalized = view.Samples.Select(Visualization.Normalize).ToArray();
+        if (normalized.Length == 0)
+        {
+            Summary = view.IsSnapshot ? "Snapshot · no captured samples. Set Max to 100% to resume live history." : "Select a value to visualize its live history.";
+            EventText = ""; return;
+        }
         var kind = normalized[^1].Kind; var samples = normalized.Select(n => n.Sample).ToArray();
         samples = normalized.Where(n => n.Kind == kind).Select(n => n.Sample).ToArray();
         EventText = string.Join(Environment.NewLine, samples.TakeLast(18).Reverse().Select(s => $"{s.Timestamp:HH:mm:ss.fff}   {s.Text}"));
-        Summary = $"{kind} · {samples.Length} samples · {samples[0].Timestamp:HH:mm:ss.fff} – {samples[^1].Timestamp:HH:mm:ss.fff}";
+        Summary = $"{(view.IsSnapshot ? "Snapshot" : "Live")} · {kind} · {samples.Length} samples · {samples[0].Timestamp:HH:mm:ss.fff} – {samples[^1].Timestamp:HH:mm:ss.fff}";
         if (Mode == VisualizationMode.Events || kind == ValueKind.Text) return;
         var box = new Rectangle(bounds.X + 78, bounds.Y + 36, Math.Max(1, bounds.Width - 105), Math.Max(1, bounds.Height - 76));
         bool spatial = (Mode == VisualizationMode.SpatialOverlay || Mode == VisualizationMode.Auto) && kind is ValueKind.Point or ValueKind.Rectangle;
-        var end = Upper >= .999 ? DateTime.UtcNow : samples[^1].Timestamp;
+        var end = view.EndTime;
         var position = Visualization.Positions(samples, Compression, end);
         for (int i = 0; i < 5; i++)
         {
@@ -139,7 +143,7 @@ internal sealed class HistoryPlot : SceneElement
         var colors = new[] { new Color(84, 218, 195), new Color(110, 167, 250), new Color(248, 185, 100), new Color(215, 132, 245) };
         if (kind is ValueKind.Boolean or ValueKind.Category or ValueKind.Color)
         {
-            Label(kind == ValueKind.Boolean ? "Now: " + samples[^1].Text : samples[^1].Text, box.X, bounds.Y + 7, box.Width);
+            Label(kind == ValueKind.Boolean ? (view.IsSnapshot ? "Snapshot: " : "Now: ") + samples[^1].Text : samples[^1].Text, box.X, bounds.Y + 7, box.Width);
             if (kind == ValueKind.Boolean)
             {
                 Label("True / 1", bounds.X + 7, box.Y + box.Height / 4f - 10, 68, colors[0]);
