@@ -1,5 +1,16 @@
 # Windows installation
 
+New standalone installers are built with `tools/Build-Installers.ps1`. Supply
+the published heirowInstaller CLI, launcher and companion, the selected original
+Inno compiler, and the package-signing key from outside the repository. The
+script publishes all three apps with their .NET runtime, preserves each original
+Inno upgrade identity, then creates signed standalone Project-Z setup EXEs. The
+recipient does not need heirowInstaller installed. The optional **Application
+updates** feature places `heirowUpdater.exe` and its generated profile at each
+app's root. The app starts it and the companion checks after exit, offering
+**Update now** or **Postpone**. Release publication must upload these new EXEs
+and advance their matching SocketJack publisher feeds together.
+
 The current [2026.10.23.5 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.5)
 includes self-contained Windows x64 portable ZIPs for the native Project-Z tools
 and WPF injector, plus `heirowDebug.ProjectZ` and `heirowDebug.WPF` NuGet archives.
