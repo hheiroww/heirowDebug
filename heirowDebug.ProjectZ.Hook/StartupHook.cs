@@ -9,9 +9,9 @@ internal static class StartupHook
         var directory = Environment.GetEnvironmentVariable("heirowDebug_PROJECTZ_PAYLOAD") ?? Path.GetDirectoryName(typeof(StartupHook).Assembly.Location)!;
         AssemblyLoadContext.Default.Resolving += (context, name) =>
         {
-            // Only supply debugger code. The target owns its bundled/Fody-loaded
-            // framework, renderer and all other dependencies.
-            if (name.Name != "heirowDebug.ProjectZ") return null;
+            // Supply only debugger code and its property-hook dependency. The
+            // target owns its bundled/Fody-loaded framework and renderer.
+            if (name.Name is not ("heirowDebug.ProjectZ" or "0Harmony")) return null;
             var loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == name.Name);
             var candidate = Path.Combine(directory, name.Name + ".dll");
             return loaded ?? (File.Exists(candidate) ? context.LoadFromAssemblyPath(candidate) : null);

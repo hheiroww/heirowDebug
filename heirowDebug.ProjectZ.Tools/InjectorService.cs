@@ -31,7 +31,7 @@ public static class InjectorService
     {
         var directory = AppContext.BaseDirectory;
         var hook = Path.Combine(directory, "heirowDebug.ProjectZ.Hook.dll");
-        if (!File.Exists(hook) || !File.Exists(Path.Combine(directory, "heirowDebug.ProjectZ.dll"))) throw new FileNotFoundException("The Project-Z injector payload is incomplete.");
+        if (!File.Exists(hook) || !File.Exists(Path.Combine(directory, "heirowDebug.ProjectZ.dll")) || !File.Exists(Path.Combine(directory, "0Harmony.dll"))) throw new FileNotFoundException("The Project-Z injector payload is incomplete.");
         // Validate all payload and target identity before asking the process to close.
         using var process = Process.GetProcessById(target.Id);
         if (!string.Equals(process.MainModule?.FileName, target.ExecutablePath, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("The selected process identity changed. Refresh the process list.");

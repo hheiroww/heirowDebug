@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageId>heirowDebug.ProjectZ</PackageId>
-    <Description>Native Project-Z live object inspection, editing, typed timelines and bounded scene-thread sampling.</Description>
+    <Description>Native Project-Z live inspection, editing, labeled timelines, change notifications, property hooks and bounded scene-thread sampling.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>project-z-framework.png</PackageIcon>
@@ -21,8 +21,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <PackageReference Include="ProjectZ" Version="$(ProjectZVersion)" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.3" />
     <None Include="README.md" Pack="true" PackagePath="/" />
     <None Include="../Assets/project-z-framework.png" Pack="true" PackagePath="/" />
     <EmbeddedResource Include="../Assets/project-z-framework.ico" LogicalName="heirowDebug.ProjectZ.ico" />
+    <EmbeddedResource Include="../DebugWindow.xaml" LogicalName="Inspector.Wpf.xaml" />
   </ItemGroup>
 </Project>

@@ -13,7 +13,7 @@ static class Program
         {
             if (args is ["--runtime", var result]) { Runtime(result); return 0; }
             if (args is ["--protected-runtime", var executable, var resultFile]) { ProtectedRuntime(executable, resultFile); return 0; }
-            Core(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles and native visualization types"); return 0;
+            Core(); Observation(); Console.WriteLine("PASS bounded sampling, snapshots, editing, cycles, static targets, profiles, native visualization types, notifications and getter/setter hooks"); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
@@ -31,7 +31,12 @@ static class Program
         public int Reads;
         public int SideEffect { get { Reads++; return Reads; } }
         public int Failure => throw new InvalidOperationException("getter failure");
-        public string Text { get; set; } = "before";
+        string text = "before";
+        public string Text
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get => text;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set => text = value;
+        }
         public string LongLabel = "Long watcher text must stay in the tree column: " + new string('W', 180);
     }
     static class Statics { public static int Value = 12; public static int GetterReads; public static object Deferred { get { GetterReads++; return new object(); } } }
@@ -80,6 +85,87 @@ static class Program
         var compact = Visualization.Positions([new(time, [], "", Color.White), new(time.AddSeconds(1), [], "", Color.White), new(time.AddSeconds(10), [], "", Color.White)], 1);
         Check(Math.Abs(compact[1] - .5) < .001, "Gap compression was not applied.");
         DebugWatcher.MaximumMembersPerPass = 8; Utils.Profile = Utils.DebugProfile.Fast;
+    }
+    sealed class HookSample
+    {
+        double number;
+        public double Number
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get => number;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set => number = Math.Clamp(value, 0, 100);
+        }
+        public int Raw;
+        public int Computed { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get => Raw * 2; }
+    }
+    static class HookStatics
+    {
+        static int value;
+        public static int Value
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get => value;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set => HookStatics.value = value;
+        }
+    }
+    sealed class NotifyingSample : System.ComponentModel.INotifyPropertyChanged
+    {
+        int number;
+        public int GetterCalls;
+        public int Number { get { Interlocked.Increment(ref GetterCalls); return number; } set { number = value; PropertyChanged?.Invoke(this, new(nameof(Number))); } }
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    }
+    static void Observation()
+    {
+        Utils.Profile = Utils.DebugProfile.PowerSaving;
+        var model = new HookSample(); var unrelated = new HookSample();
+        using (var watcher = new DebugWatcher(model))
+        {
+            watcher.isEnabled = true; watcher.SampleNow();
+            var value = watcher.Values.Single(v => v.Name == nameof(HookSample.Number));
+            Check(value.TryEnablePropertyHooks(out var error), "Could not hook instance accessors: " + error);
+            for (int i = 1; i <= 8; i++) model.Number = i;
+            Check(value.Timeline.Count == 9 && (double)value.Value! == 8, "Setter hooks missed transitions between scene frames.");
+            model.Number = 500; Check((double)value.Value! == 100, "Setter hook recorded its input instead of the actual clamped result.");
+            unrelated.Number = 17; Check((double)value.Value! == 100, "A hook recorded another object's property.");
+            using (var other = new DebugWatcher(unrelated))
+            {
+                other.isEnabled = true; var otherValue = other.Values.Single(v => v.Name == nameof(HookSample.Number));
+                Check(otherValue.TryEnablePropertyHooks(out error), "A shared accessor hook failed: " + error);
+                unrelated.Number = 27;
+                Check((double)otherValue.Value! == 27 && (double)value.Value! == 100, "Shared accessor hooks mixed object identities.");
+            }
+            model.Number = 99; Check((double)value.Value! == 99, "Disposing another watcher removed the remaining hook.");
+            var computed = watcher.Values.Single(v => v.Name == nameof(HookSample.Computed));
+            Check(computed.TryEnablePropertyHooks(out error), "Read-only getter could not be hooked: " + error);
+            model.Raw = 21; _ = model.Computed;
+            Check((int)computed.Value! == 42, "Getter hook did not capture the application's return value.");
+            watcher.isEnabled = false; model.Number = 20; Check((double)value.Value! == 99, "Paused hooks continued capturing.");
+            watcher.isEnabled = true; value.DisablePropertyHooks(); model.Number = 30;
+            Check(value.ObservationMode == ValueObservationMode.Polling && (double)value.Value! == 99, "Disabling a hook left it active.");
+        }
+        using (var watcher = DebugWatcher.WatchStaticType(typeof(HookStatics)))
+        {
+            watcher.isEnabled = true; var value = watcher.Values.Single(v => v.Name == nameof(HookStatics.Value));
+            Check(value.TryEnablePropertyHooks(out var error), "Static property hook failed: " + error);
+            HookStatics.Value = 123; Check((int)value.Value! == 123, "Static setter did not capture a value.");
+        }
+        Utils.FramesPerSecond = 100;
+        var notifying = new NotifyingSample();
+        using (var watcher = new DebugWatcher(notifying))
+        {
+            watcher.StartSession(); watcher.SampleNow();
+            var value = watcher.Values.Single(v => v.Name == nameof(NotifyingSample.Number));
+            int reads = notifying.GetterCalls;
+            for (int i = 1; i <= 12; i++) notifying.Number = i;
+            Check(value.Timeline.Count == 13 && (int)value.Value! == 12, "PropertyChanged missed rapid transitions.");
+            Thread.Sleep(100);
+            Check(notifying.GetterCalls == reads + 12, "Notifying properties were still polled between changes.");
+            Check(value.ObservationMode == ValueObservationMode.ChangeNotification, "Notification source was not reported.");
+            Task.Run(() => notifying.Number = 50).GetAwaiter().GetResult();
+            Check((int)value.Value! == 50, "Worker-thread changes were not captured immediately.");
+        }
+        int afterDispose = notifying.GetterCalls; notifying.Number = 77;
+        Check(notifying.GetterCalls == afterDispose, "Disposing a watcher retained its property notification handler.");
+        Utils.Profile = Utils.DebugProfile.Fast;
     }
     static void Runtime(string result)
     {
@@ -132,8 +218,67 @@ static class Program
             }
             if (frames == 70)
             {
+                Check(inspector!.Plot.Labels.Any(label => label.StartsWith("Value ")) && inspector.Plot.Labels.Any(label => label.StartsWith("+")), "Numeric value or time axis labels are missing.");
                 inspector!.DispatchClick(380, 75);
                 Check(inspector.VisualizationMode == VisualizationMode.TimeSeries, "Native View button did not receive its click.");
+            }
+            if (frames == 72)
+            {
+                var range = inspector!.HistoryRange;
+                int x = (int)range.Position.X + 10, y = (int)(range.Position.Y + range.Size.Y / 2), width = (int)range.Size.X - 20;
+                inspector.DispatchDrag(x, y, x + width * 30 / 100, y);
+                Check(Math.Abs(range.LowerValue - 30) < 1 && range.UpperValue == 100, "Dragging the minimum handle changed the wrong endpoint.");
+                inspector.DispatchDrag(x + width, y, x + width * 80 / 100, y);
+                Check(Math.Abs(range.UpperValue - 80) < 1, "Dragging the maximum handle failed.");
+                double oldUpper = range.UpperValue; inspector.DispatchKey(Microsoft.Xna.Framework.Input.Keys.Right);
+                Check(range.UpperValue > oldUpper, "The range slider did not respond to keyboard adjustment.");
+                double oldLower = range.LowerValue, span = range.UpperValue - range.LowerValue;
+                inspector.DispatchDrag(x + width / 2, y, x + width * 55 / 100, y);
+                Check(range.LowerValue > oldLower && Math.Abs(range.UpperValue - range.LowerValue - span) < .01, "Dragging the selected interval changed its width.");
+                void TypeRange(ProjectZ.Shared.Drawing.UI.Input.Textbox input, string text)
+                {
+                    inspector.DispatchClick((int)input.Position.X + 10, (int)input.Position.Y + 12);
+                    inspector.DispatchKey(Microsoft.Xna.Framework.Input.Keys.End);
+                    for (int i = input.Text.Length; i > 0; i--) inspector.DispatchKey(Microsoft.Xna.Framework.Input.Keys.Back);
+                    inspector.Surface.DispatchText(text);
+                }
+                TypeRange(inspector.HistoryMinimumInput, "35"); TypeRange(inspector.HistoryMaximumInput, "75");
+                inspector.DispatchKey(Microsoft.Xna.Framework.Input.Keys.Enter);
+                Check(inspector.HistoryRange.isSelected, "Enter did not commit the range editor and focus the slider.");
+                Check(Math.Abs(inspector.Plot.Lower - .35) < .0001 && Math.Abs(inspector.Plot.Upper - .75) < .0001, "Typing Min/Max did not update the selected graph interval.");
+                var spelling = inspector.ValueInput.GetType().GetProperty("IsSpellCheckEnabled");
+                Check(spelling is null || Equals(spelling.GetValue(inspector.ValueInput), false), "Value editor spelling was enabled.");
+            }
+            if (frames == 74)
+            {
+                Check(inspector!.TreeRows.Single(row => row.Text.Contains("Number:")).Text.StartsWith("  "), "Scalar tree leaves still show an expansion control.");
+                var itemsRow = inspector.TreeRows.Single(row => row.Text.Contains("Items:"));
+                Check(itemsRow.Text.StartsWith("▸"), "Closed tree item did not show a closed indicator.");
+                inspector.DispatchClick((int)itemsRow.Position.X + 5, (int)itemsRow.Position.Y + 8);
+                Check(inspector.TreeRows.Single(row => row.Text.Contains("Items:")).Text.StartsWith("▾") && inspector.TreeRows.Any(row => row.Text.Contains("[0]:")), "Tree expansion did not update the indicator and children.");
+            }
+            if (frames == 76)
+            {
+                var itemsRow = inspector!.TreeRows.Single(row => row.Text.Contains("Items:"));
+                inspector.DispatchClick((int)itemsRow.Position.X + 5, (int)itemsRow.Position.Y + 8);
+                Check(inspector.TreeRows.Single(row => row.Text.Contains("Items:")).Text.StartsWith("▸") && !inspector.TreeRows.Any(row => row.Text.Contains("[0]:")), "Tree collapse left stale children or the wrong indicator.");
+                var root = inspector.TreeRows[0]; inspector.DispatchClick((int)root.Position.X + 5, (int)root.Position.Y + 8);
+                Check(inspector.TreeRows.Count == 1 && inspector.TreeRows[0].Text.StartsWith("▸"), "Root watcher did not collapse.");
+                inspector.DispatchClick((int)root.Position.X + 5, (int)root.Position.Y + 8);
+                Check(inspector.TreeRows.Count > 1 && inspector.TreeRows[0].Text.StartsWith("▾"), "Root watcher did not reopen.");
+                inspector.Select(watcher!, watcher!.Values.Single(value => value.Name == nameof(Sample.Text)));
+                var button = inspector.PropertyHookButton;
+                inspector.DispatchClick((int)button.Position.X + 15, (int)button.Position.Y + 12);
+                var selected = inspector.SelectedValue!;
+                Check(selected.ObservationMode == ValueObservationMode.PropertyHook, "The native property hook control did not enable accessors.");
+                for (int i = 0; i < 10; i++) sample.Text = "Native hook transition " + i;
+                Check((string)selected.Value! == "Native hook transition 9" && selected.Timeline.Count >= 11, "The native property hook missed changes within one frame.");
+                inspector.SaveFrame(result + ".controls.png");
+                inspector.DispatchClick((int)button.Position.X + 15, (int)button.Position.Y + 12);
+                Check(selected.ObservationMode == ValueObservationMode.Polling, "The native unhook control did not remove accessors.");
+                // Preserve the scene-thread edit assertion later in this test.
+                sample.Text = "scene-thread write";
+                inspector.HistoryRange.SetRange(0, 100);
             }
             if (frames == 85) inspector!.Select(watcher!, watcher!.Values.Single(v => v.Name == nameof(Sample.Boolean)));
             if (frames == 95) inspector!.SaveFrame(result + ".boolean.png");
@@ -153,7 +298,7 @@ static class Program
                 var hwnd = global::ProjectZ.Windows.Composition.WindowsComposition.ResolveHwnd(app);
                 Check(hwnd != IntPtr.Zero, "No real HWND was created.");
                 inspector!.SaveFrame(result + ".png");
-                File.WriteAllText(result, "PASS native HWND, live inspector, scene-thread sampling/editing, 24 consecutive watcher-tree frames without blanking or text bleed, rendering and continued target frames");
+                File.WriteAllText(result, "PASS native HWND, numeric/time axes, dual-thumb drag/pan/keyboard/Min-Max input, spelling disabled, tree open/closed/leaf states, property hook UI and same-frame changes, scene-thread editing, 24 consecutive watcher-tree frames without blanking or text bleed");
                 inspector!.Dispose(); watcher.Dispose(); app.Exit();
             }
         };

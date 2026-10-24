@@ -4,16 +4,16 @@
 
 **Live objects. Clear timelines. Visual debugging.**
 
-Version 2026.10.23.1 · Windows · .NET 10
+Version 2026.10.23.2 · Windows · .NET 10
 
 heirowDebug provides live object inspection, editing and typed timelines for WPF and native Project-Z applications. Both implementations live in this repository and are published as separate NuGet packages: **heirowDebug.WPF** and **heirowDebug.ProjectZ**. This is the 2026 release of the former Jack-Debug project.
 
 ## Current packages and Project-Z tools
 
 ```powershell
-dotnet add package heirowDebug.WPF --version 2026.10.23.1
+dotnet add package heirowDebug.WPF --version 2026.10.23.2
 # For a native Project-Z application:
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.1
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.2
 ```
 
 The Project-Z suite includes the native live inspector, a running-process
@@ -31,6 +31,14 @@ dotnet run --project heirowDebug.ProjectZ.Tools -c Release
 Sampling and edits run on the owning scene thread when the watcher is attached
 with `AttachScene(scene)`. Reflection, history retention and recursive expansion
 are bounded. XNA points, vectors, rectangles and colors have native visualizations.
+The native inspector shows numeric/time axes, current channel values and accurate
+open/closed tree arrows. A dual-thumb history slider, imported from the WPF XAML,
+has editable Min/Max percentages; value inputs disable spelling.
+
+`INotifyPropertyChanged` properties update from change events. Select an ordinary
+managed property and choose **Hook get/set** to capture accessor calls immediately,
+including multiple transitions within one frame. Fields retain bounded sampling.
+See [property capture and runtime limitations](heirowDebug.ProjectZ/README.md#event-driven-property-capture).
 
 Get the libraries from NuGet: [heirowDebug.WPF](https://www.nuget.org/packages/heirowDebug.WPF/)
 and [heirowDebug.ProjectZ](https://www.nuget.org/packages/heirowDebug.ProjectZ/).
@@ -123,7 +131,8 @@ still set `FramesPerSecond` directly when a custom rate is needed.
 ![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
 
 A 9.6-second recording of the native inspector watching sample telemetry, with
-16x AA/AF, a live numeric timeline, a spatial trace and boolean state bands.
+16x AA/AF, labeled numeric/time axes, live accessor hooks, a dual-thumb range,
+a spatial trace and boolean state bands.
 
 ### WPF
 

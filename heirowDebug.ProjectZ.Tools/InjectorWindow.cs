@@ -58,6 +58,7 @@ sealed class ToolWindow : NativeWindow
         processes = parser.FindName<ProcessGrid>("ProcessGrid");
         refresh = parser.FindName<Button>("RefreshButton"); inject = parser.FindName<Button>("InjectButton");
         preferredRoot = parser.FindName<Textbox>("RootTypeTextBox"); recursive = parser.FindName<CheckBox>("RecursiveCheckBox"); status = parser.FindName<TextElement>("StatusText");
+        DisableSpellCheck(preferredRoot);
         var placeholder = parser.FindName<TextElement>("RootTypePlaceholder");
         void UpdatePlaceholder() { placeholder.isVisible = preferredRoot.Text.Length == 0; parser.SetImportedProperty(placeholder, "Visibility", placeholder.isVisible ? "Visible" : "Collapsed"); }
         preferredRoot.OnTextChanged += _ => UpdatePlaceholder(); UpdatePlaceholder();

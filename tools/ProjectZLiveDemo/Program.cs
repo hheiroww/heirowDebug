@@ -49,12 +49,23 @@ static class Program
             {
                 var member = nextPhase == 0 ? nameof(Telemetry.LoadPercent) : nextPhase == 1 ? nameof(Telemetry.Position) : nameof(Telemetry.IsBusy);
                 inspector.Select(watcher!, watcher!.Values.Single(value => value.Name == member));
+                if (!inspector.SelectedValue!.TryEnablePropertyHooks(out var hookError)) throw new InvalidOperationException("Demo property hook failed: " + hookError);
                 var mode = nextPhase == 1 ? VisualizationMode.SpatialOverlay : VisualizationMode.Auto;
                 for (int attempt = 0; inspector.VisualizationMode != mode && attempt < 4; attempt++) inspector.DispatchClick(380, 75);
                 if (inspector.VisualizationMode != mode) throw new InvalidOperationException("The production View control did not change visualization mode.");
                 selections.Add(member); phase = nextPhase;
                 nextCapture = clock.Elapsed + TimeSpan.FromMilliseconds(200);
                 return;
+            }
+            if (captured == 20)
+            {
+                inspector.DispatchDrag(470, 738, 620, 738);
+                inspector.DispatchDrag(1135, 738, 1070, 738);
+            }
+            if (captured == 29)
+            {
+                inspector.DispatchDrag(620, 738, 470, 738);
+                inspector.DispatchDrag(1070, 738, 1135, 738);
             }
             inspector.SaveFrame(Path.Combine(output, $"frame-{captured:0000}.png"));
             loads.Add(telemetry.LoadPercent); captured++;
@@ -77,10 +88,22 @@ static class Program
     }
     sealed class Telemetry
     {
-        public double LoadPercent;
+        public double LoadPercent
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
         public int RequestsPerSecond;
-        public bool IsBusy;
-        public Vector2 Position;
+        public bool IsBusy
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
+        public Vector2 Position
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] get;
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] set;
+        }
         public string Status = "Starting native telemetry";
     }
 }

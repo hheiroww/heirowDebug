@@ -10,10 +10,11 @@ It depends on the publicly published `ProjectZ 2026.10.20.1` package.
 ![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif)
 
 The recording shows the production native inspector watching sample telemetry
-with 16x AA/AF: a numeric timeline, a spatial trace and boolean state bands.
+with 16x AA/AF: labeled numeric axes and current values, a spatial trace,
+boolean state bands, property-access hooks and a dual-thumb history range.
 
 ```powershell
-dotnet add package heirowDebug.ProjectZ --version 2026.10.23.1
+dotnet add package heirowDebug.ProjectZ --version 2026.10.23.2
 ```
 
 ```csharp
@@ -37,9 +38,54 @@ Keep scene sampling attached to a scene that continues updating while debugging.
 The native inspector includes object and static watches, a searchable watch
 picker, lazy collection/object/struct expansion, live field/property edits,
 optional underscore backing-field writes, elapsed-time histories, gap compression,
-a history range, and Auto, Time series, Spatial overlay and Events views. Numbers,
+a dual-thumb history range with editable Min/Max percentages, and Auto, Time
+series, Spatial overlay and Events views. The range uses the actual WPF
+`RangeSlider` XAML through a native adapter. Drag either endpoint, drag the
+selected interval to pan it, or use arrow keys (Space switches endpoints).
+Numbers,
 booleans, categories, colors, XNA geometry and ordinary .NET geometry have typed
 visualizations. Sampling profiles match the WPF rates and retention limits.
+Graph axes show numeric scales and elapsed time where applicable; channel
+labels show the latest visible values. Tree arrows distinguish expanded and
+collapsed objects, while scalar leaves have no arrow. Value and range inputs
+disable spelling.
+
+## Event-driven property capture
+
+Objects implementing `INotifyPropertyChanged` are observed automatically after
+`StartSession()`. Their properties are read once initially, then only when the
+matching change event arrives, including events from worker threads.
+
+For ordinary managed properties, select one and choose **Hook get/set**.
+The inspector installs [Harmony](https://harmony.pardeike.net/v2/articles/patching-postfix.html)
+postfixes on that property's accessors. Getter returns and completed setter
+values enter the timeline immediately on the calling thread, so several changes
+between rendered frames are retained. A setter's final value is read after it
+returns, preserving clamping and normalization. Snapshots remain bounded; the
+native UI and watcher events update on their owning scene/context. Observation
+callbacks do not change arguments, return values or application exceptions.
+
+The same control is available in code:
+
+```csharp
+var value = watcher.Values.Single(value => value.Name == "Progress");
+if (!value.TryEnablePropertyHooks(out var reason))
+    Console.WriteLine(reason); // Notifications or sampling remain available.
+// value.DisablePropertyHooks();
+```
+
+**Unhook property** restores the prior notification/sampling mode. Disposing a
+watcher removes its subscriptions and its accessor hooks without removing other
+watchers' hooks. Pausing a session pauses capture as well.
+
+Runtime hooks can miss accesses already inlined by the JIT. They require managed
+method bodies and a runtime that supports detours; native/AOT accessors,
+by-reference returns and properties declared on value types are not hooked.
+Getter-only hooks observe application reads, not unseen backing-field writes.
+Fields and collection entries retain bounded sampling because they have no
+property accessor to intercept. Hooking is explicit rather than modifying every
+framework property in an injected application. Change notifications remain the
+preferred way to observe properties whose callers may already be inlined.
 
 Reflection is bounded to 24 watchers, six children per parent, two recursive
 levels, 192 members per watcher and eight member reads per sampling pass by

@@ -35,7 +35,8 @@ generated artwork.
 `heirowDebug-ProjectZ-demo.gif` records the production native inspector using
 synthetic telemetry, with 16x anti-aliasing and 16x anisotropic filtering.
 It contains 96 frames at 10 fps, displayed at 1024 by 640 pixels. The recording
-shows a numeric timeline, a live spatial trace and boolean state bands.
+shows labeled numeric/time axes, current values, accessor hooks, dragging both
+history-range endpoints, a live spatial trace and boolean state bands.
 
 Capture fresh frames into an empty output directory:
 

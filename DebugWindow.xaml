@@ -112,7 +112,7 @@
             <StackPanel x:Name="ValueActions" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8" Panel.ZIndex="4">
                 <WrapPanel HorizontalAlignment="Center">
                 <Button x:Name="AddWatchButton" Content="Add Watch" Padding="20,10" FontSize="14" Background="#FF2D2D30" Foreground="WhiteSmoke" BorderBrush="#FF3F3F46"/>
-                <TextBox x:Name="EditValueTextBox" Margin="8,0" MinWidth="160" MaxWidth="240" Padding="6" VerticalContentAlignment="Center"/>
+                <TextBox x:Name="EditValueTextBox" Margin="8,0" MinWidth="160" MaxWidth="240" Padding="6" VerticalContentAlignment="Center" SpellCheck.IsEnabled="False"/>
                 <mah:ToggleSwitch x:Name="SetBackingFieldToggle" Margin="0,0,8,0" Header="Also set backing field"
                                   IsOn="False" Visibility="Collapsed"
                                   ToolTip="After the property setter runs, also update its matching underscore field."/>

@@ -38,20 +38,24 @@ public sealed class ValueTimeline
 {
     readonly object gate = new();
     readonly Queue<ValueSnapshot> samples = new();
+    ValueSnapshot? latest;
     public static int MaximumSnapshotsPerValue { get; set; } = 2000;
+    public int Count { get { lock (gate) return samples.Count; } }
     public ValueSnapshot[] GetSnapshots() { lock (gate) return samples.ToArray(); }
-    internal void Add(object? value, DateTime timestamp)
+    internal bool Add(object? value, DateTime timestamp)
     {
         lock (gate)
         {
             // Immutable copies keep collection history independent of later mutations.
             value = SnapshotValue(value);
-            if (samples.TryPeek(out _) && Equivalent(samples.Last().Value, value)) return;
-            samples.Enqueue(new(timestamp, value));
+            if (latest is not null && Equivalent(latest.Value, value)) return false;
+            if (latest is not null && timestamp < latest.Timestamp) timestamp = latest.Timestamp;
+            latest = new(timestamp, value); samples.Enqueue(latest);
             while (samples.Count > Math.Max(1, MaximumSnapshotsPerValue)) samples.Dequeue();
+            return true;
         }
     }
-    public void Clear() { lock (gate) samples.Clear(); }
+    public void Clear() { lock (gate) { samples.Clear(); latest = null; } }
     internal static object? SnapshotValue(object? value)
     {
         if (value is string || value is null || value.GetType().IsValueType) return value;
@@ -79,6 +83,8 @@ public sealed class DebugValue
     readonly Action<object?>? setter;
     readonly string? customName;
     readonly Type? customType;
+    readonly object recordGate = new();
+    IDisposable? propertyHook;
     internal DebugValue(DebugWatcher owner, MemberInfo member) { this.owner = owner; Member = member; }
     internal DebugValue(DebugWatcher owner, string name, Type type, Func<object?> getter, Action<object?>? setter = null)
     { this.owner = owner; customName = name; customType = type; this.getter = getter; this.setter = setter; }
@@ -89,13 +95,33 @@ public sealed class DebugValue
     public object? Value { get; private set; }
     public string? Error { get; private set; }
     public ValueTimeline Timeline { get; } = new();
+    public ValueObservationMode ObservationMode => propertyHook is not null ? ValueObservationMode.PropertyHook :
+        Member is PropertyInfo && owner.HasChangeNotifications ? ValueObservationMode.ChangeNotification : ValueObservationMode.Polling;
+    public string? ObservationError { get; private set; }
+    public bool CanHookProperty => Member is PropertyInfo && !owner.TargetType.IsValueType;
+    internal bool IsObservationEnabled => owner.IsObservationEnabled;
+    internal bool MatchesInstance(object? instance) => owner.IsStaticRoot ? instance is null : ReferenceEquals(instance, owner.AttachedObject);
+    public bool TryEnablePropertyHooks(out string? error)
+    {
+        if (propertyHook is not null) { error = null; return true; }
+        try { propertyHook = PropertyObservation.Attach(this); ObservationError = error = null; return true; }
+        catch (Exception ex) { ObservationError = error = (ex.InnerException ?? ex).Message; return false; }
+    }
+    public void DisablePropertyHooks() => Interlocked.Exchange(ref propertyHook, null)?.Dispose();
     public bool CanWrite => owner.CanWriteChildren && (getter is not null ? setter is not null : Member is FieldInfo f ? !f.IsInitOnly && !f.IsLiteral : ((PropertyInfo)Member!).SetMethod is not null);
     internal object? Read() => getter is not null ? getter() : Member is FieldInfo f ? f.GetValue(owner.AttachedObject) : ((PropertyInfo)Member!).GetValue(owner.AttachedObject);
     internal void Sample(DateTime now)
     {
-        try { Value = Read(); Error = null; Timeline.Add(Value, now); }
+        try { Record(Read(), now); }
         catch (Exception ex) { Error = (ex.InnerException ?? ex).Message; }
     }
+    internal void Record(object? value, DateTime now)
+    {
+        bool changed;
+        lock (recordGate) { Value = value; Error = ObservationError = null; changed = Timeline.Add(value, now); }
+        owner.Recorded(this, changed);
+    }
+    internal void RecordObservationError(Exception ex) => ObservationError = (ex.InnerException ?? ex).Message;
     public Task ApplyAsync(string text, bool alsoSetBackingField = false) => owner.DispatchAsync(() =>
     {
         if (!CanWrite) throw new InvalidOperationException("This member is read-only.");
@@ -152,6 +178,8 @@ public sealed class DebugWatcher : IDisposable
 {
     static readonly object RegistryGate = new();
     static readonly Dictionary<string, DebugWatcher> registry = new();
+    static long revision;
+    public static long Revision => Interlocked.Read(ref revision);
     readonly object gate = new();
     readonly List<DebugValue> values;
     readonly List<DebugWatcher> children = new();
@@ -159,12 +187,16 @@ public sealed class DebugWatcher : IDisposable
     DebugValue? parentValueSource;
     readonly ConcurrentQueue<(Action Action, TaskCompletionSource Completion)> commands = new();
     readonly SynchronizationContext? context;
+    readonly ConcurrentDictionary<DebugValue, bool> pendingChanges = new();
+    INotifyPropertyChanged? notifications;
+    [ThreadStatic] static HashSet<DebugWatcher>? notifying;
     Scene? scene;
     Timer? timer;
     int sceneThread;
     int memberIndex;
     long nextSample;
-    bool disposed;
+    volatile bool disposed;
+    volatile bool active;
     int sampling;
     public static IReadOnlyDictionary<string, DebugWatcher> Watchers { get { lock (RegistryGate) return new Dictionary<string, DebugWatcher>(registry); } }
     public static int MaximumWatcherCount { get; set; } = 24;
@@ -184,10 +216,12 @@ public sealed class DebugWatcher : IDisposable
     public string? ParentValueGuid { get; private set; }
     public IReadOnlyList<DebugWatcher> Children { get { lock (RegistryGate) return children.ToArray(); } }
     public int Depth => Parent is null ? 0 : Parent.Depth + 1;
-    public bool isEnabled { get; set; }
+    public bool isEnabled { get => active; set => active = value; }
     public IReadOnlyList<DebugValue> Values => values;
     public int ValueCount => values.Count;
     internal Scene? OwnerScene => scene;
+    internal bool HasChangeNotifications => notifications is not null;
+    internal bool IsObservationEnabled => !disposed && isEnabled;
     internal bool CanWriteChildren => !TargetType.IsValueType || parentValueSource?.CanWrite == true;
     internal void PropagateValueType()
     {
@@ -228,6 +262,7 @@ public sealed class DebugWatcher : IDisposable
         {
             if (registry.Count >= MaximumWatcherCount) throw new InvalidOperationException("The watcher safety limit has been reached.");
             registry.Add(Guid, this);
+            Interlocked.Increment(ref revision);
         }
         if (target is Scene targetScene) AttachScene(targetScene);
         else if (target is SceneManager manager && manager.ActiveScene is { } active) AttachScene(active);
@@ -259,6 +294,10 @@ public sealed class DebugWatcher : IDisposable
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         isEnabled = true;
+        if (notifications is null && AttachedObject is INotifyPropertyChanged source)
+        {
+            notifications = source; source.PropertyChanged += OnPropertyChanged;
+        }
         if (scene is null) timer ??= new Timer(_ =>
         {
             if (context is null) Sample(); else context.Post(_ => Sample(), null);
@@ -266,7 +305,33 @@ public sealed class DebugWatcher : IDisposable
         }, null, Utils.Interval, Timeout.InfiniteTimeSpan);
     }
     public void StopSession() { isEnabled = false; foreach (var child in children.ToArray()) child.StopSession(); }
-    void OnFrame(GameTime _) { sceneThread = Environment.CurrentManagedThreadId; DrainCommands(); Sample(); }
+    void OnPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (!IsObservationEnabled) return;
+        notifying ??= new(); if (!notifying.Add(this)) return;
+        try
+        {
+            foreach (var value in values.Where(v => v.Member is PropertyInfo && (string.IsNullOrEmpty(args.PropertyName) || v.Name == args.PropertyName)).ToArray())
+                try { value.Record(value.Read(), DateTime.UtcNow); } catch (Exception ex) { value.RecordObservationError(ex); }
+        }
+        catch (Exception) { /* Observation must never interrupt the application's event. */ }
+        finally { notifying.Remove(this); }
+    }
+    internal void Recorded(DebugValue value, bool changed)
+    {
+        pendingChanges.AddOrUpdate(value, changed, (_, previous) => previous || changed);
+        if (changed) Interlocked.Increment(ref revision);
+    }
+    void DrainChanges()
+    {
+        foreach (var value in pendingChanges.Keys)
+            if (pendingChanges.TryRemove(value, out bool changed))
+            {
+                ValueCalculated?.Invoke(this, value);
+                if (changed) ValueChanged?.Invoke(this, value);
+            }
+    }
+    void OnFrame(GameTime _) { sceneThread = Environment.CurrentManagedThreadId; DrainCommands(); Sample(); DrainChanges(); }
     public void SampleNow() { if (scene is not null && Environment.CurrentManagedThreadId != sceneThread) throw new InvalidOperationException("Sample on the owning scene thread."); Sample(true); }
     void Sample(bool force = false)
     {
@@ -281,15 +346,17 @@ public sealed class DebugWatcher : IDisposable
                 RefreshCollectionMembers();
                 for (int i = 0; i < Math.Min(values.Count, Math.Max(1, MaximumMembersPerPass)); i++)
                 {
-                    memberIndex %= values.Count; var value = values[memberIndex]; memberIndex = (memberIndex + 1) % values.Count; var old = value.Value;
-                    value.Sample(DateTime.UtcNow); ValueCalculated?.Invoke(this, value);
-                    if (!Equals(old, value.Value)) ValueChanged?.Invoke(this, value);
+                    memberIndex %= values.Count; var value = values[memberIndex]; memberIndex = (memberIndex + 1) % values.Count;
+                    // Prime once, then let notifications/accessor callbacks record
+                    // every transition without repeatedly invoking the getter.
+                    if (force || value.ObservationMode == ValueObservationMode.Polling || value.Timeline.Count == 0)
+                        value.Sample(DateTime.UtcNow);
                     if (IsRecursive && Depth < MaxRecursionDepth && children.Count < MaximumChildWatchersPerParent && IsInspectable(value.Value))
                         TryExpand(value);
                 }
             }
         }
-        finally { Volatile.Write(ref sampling, 0); }
+        finally { Volatile.Write(ref sampling, 0); DrainChanges(); }
     }
     void RefreshCollectionMembers()
     {
@@ -316,15 +383,21 @@ public sealed class DebugWatcher : IDisposable
         }
     }
     static bool IsInspectable(object? value) => value is not null && value is not string && !value.GetType().IsPrimitive && !value.GetType().IsEnum && value is not decimal && value is not DateTime && value is not TimeSpan && value is not Delegate && value is not Type;
+    public bool CanExpand(DebugValue value)
+    {
+        if (!values.Contains(value) || !IsInspectable(value.Value) || Depth >= MaxRecursionDepth) return false;
+        for (var ancestor = this; ancestor is not null; ancestor = ancestor.Parent) if (ReferenceEquals(ancestor.AttachedObject, value.Value)) return false;
+        return true;
+    }
     public DebugWatcher? Expand(DebugValue value) => TryExpand(value);
     DebugWatcher? TryExpand(DebugValue value)
     {
-        if (!IsInspectable(value.Value) || Depth >= MaxRecursionDepth) return null;
-        for (var ancestor = this; ancestor is not null; ancestor = ancestor.Parent) if (ReferenceEquals(ancestor.AttachedObject, value.Value)) return null;
+        if (!CanExpand(value)) return null;
         lock (RegistryGate)
         {
-            var existing = children.FirstOrDefault(c => ReferenceEquals(c.AttachedObject, value.Value));
-            if (existing is not null) return existing;
+            var existing = children.FirstOrDefault(c => c.ParentValueGuid == value.Guid);
+            if (existing is not null && ReferenceEquals(existing.AttachedObject, value.Value)) return existing;
+            existing?.Dispose();
             if (registry.Count >= MaximumWatcherCount || children.Count >= MaximumChildWatchersPerParent) return null;
             var child = new DebugWatcher(value.Value, value.Value!.GetType(), IsRecursive, value.Name, this, false);
             child.ParentValueGuid = value.Guid;
@@ -361,10 +434,13 @@ public sealed class DebugWatcher : IDisposable
     public void Dispose()
     {
         if (disposed) return; disposed = true; isEnabled = false; timer?.Dispose();
+        if (notifications is not null) notifications.PropertyChanged -= OnPropertyChanged;
+        notifications = null;
         if (scene is not null) scene.FrameUpdated -= OnFrame;
         foreach (var child in children.ToArray()) child.Dispose();
         while (commands.TryDequeue(out var command)) command.Completion.TrySetException(new ObjectDisposedException(Name));
-        foreach (var value in values) value.Timeline.Clear();
-        lock (RegistryGate) registry.Remove(Guid);
+        foreach (var value in values) { value.DisablePropertyHooks(); value.Timeline.Clear(); }
+        pendingChanges.Clear();
+        lock (RegistryGate) { registry.Remove(Guid); Parent?.children.Remove(this); Interlocked.Increment(ref revision); }
     }
 }

@@ -104,6 +104,23 @@ public class NativeWindow : Game
         try { manager.InjectKeyDown(key); manager.InjectKeyUp(key); }
         finally { manager.UseExternalInput = previous; }
     }
+    public void DispatchDrag(int fromX, int fromY, int toX, int toY)
+    {
+        bool previous = manager.UseExternalInput; manager.UseExternalInput = true;
+        try
+        {
+            manager.InjectMouseLeftDown(fromX, fromY, Width, Height);
+            for (int step = 1; step <= 8; step++) manager.InjectMouseMove(fromX + (toX - fromX) * step / 8, fromY + (toY - fromY) * step / 8, Width, Height);
+            manager.InjectMouseLeftUp(toX, toY, Width, Height);
+        }
+        finally { manager.UseExternalInput = previous; }
+    }
+    public void DispatchText(string text)
+    {
+        bool previous = manager.UseExternalInput; manager.UseExternalInput = true;
+        try { manager.InjectTextInput(text); }
+        finally { manager.UseExternalInput = previous; }
+    }
     protected void ResizeClient(int width, int height)
     {
         graphics.PreferredBackBufferWidth = width; graphics.PreferredBackBufferHeight = height; graphics.ApplyChanges();
@@ -118,7 +135,17 @@ public class NativeWindow : Game
         var button = Add(new NativeButton(Scene) { AutoSize = ButtonAutoSize.None, Text = text, Position = new(x, y), Size = new(width, 30), BackgroundColor = new Color(35, 50, 64), MouseOverBackgroundColor = new Color(49, 76, 92), ForegroundColor = Color.White });
         button.MouseLeftClick += _ => action(); return button;
     }
-    public Textbox Input(float x, float y, float width, string text = "") => Add(new Textbox(Scene) { Text = text, Position = new(x, y), Size = new(width, 30), AcceptsReturn = false, ForegroundColor = Color.White, BackgroundColor = new Color(24, 34, 44) });
+    public Textbox Input(float x, float y, float width, string text = "")
+    {
+        var input = new Textbox(Scene) { Text = text, Position = new(x, y), Size = new(width, 30), AcceptsReturn = false, ForegroundColor = Color.White, BackgroundColor = new Color(24, 34, 44) };
+        DisableSpellCheck(input); return Add(input);
+    }
+    public static void DisableSpellCheck(Textbox input)
+    {
+        // Older supported Project-Z builds predate spelling. Targets may load a
+        // newer bundled framework, so opt out when that capability is present.
+        input.GetType().GetProperty("IsSpellCheckEnabled")?.SetValue(input, false);
+    }
     protected override void Dispose(bool disposing)
     {
         if (disposing) { Closed = true; manager?.Dispose(); retainedIcon?.Dispose(); frame?.Dispose(); presentation?.Dispose(); }

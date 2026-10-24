@@ -1,11 +1,14 @@
 using System.Collections;
 using System.Reflection;
+using System.Xml;
+using System.Globalization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using ProjectZ.Shared.Drawing;
 using ProjectZ.Shared.Drawing.UI;
 using ProjectZ.Shared.Drawing.UI.Input;
 using ProjectZ.Shared.Drawing.UI.Primitives;
+using ProjectZ.Shared.Drawing.Designer;
 
 namespace heirowDebug.ProjectZ;
 
@@ -21,6 +24,8 @@ public sealed class DebugWindow : IDisposable
     readonly List<TextElement> rows = new();
     readonly List<(DebugWatcher Owner, DebugValue? Value)> rowTargets = new();
     readonly HashSet<string> expanded = new();
+    readonly HashSet<string> collapsedRoots = new();
+    readonly List<(SceneElement Control, float Width, float Offset)> toolbar = new();
     readonly List<global::ProjectZ.Shared.Drawing.UI.Input.Button> actionButtons = new();
     DebugValue? selected;
     DebugWatcher? selectedOwner;
@@ -28,7 +33,12 @@ public sealed class DebugWindow : IDisposable
     Textbox filter = null!;
     TextElement title = null!, summary = null!, status = null!, events = null!;
     HistoryPlot plot = null!;
-    Trackbar lower = null!, upper = null!, compression = null!;
+    Trackbar compression = null!;
+    HistoryRangeSlider range = null!;
+    Textbox rangeMin = null!, rangeMax = null!;
+    TextElement minLabel = null!, maxLabel = null!;
+    global::ProjectZ.Shared.Drawing.UI.Input.Button hook = null!;
+    bool syncingRange;
     readonly List<SceneElement> targetControls = new();
     readonly List<WatchTarget> targets = new();
     int targetIndex;
@@ -36,6 +46,7 @@ public sealed class DebugWindow : IDisposable
     int lastWidth;
     int lastHeight;
     long nextRefresh;
+    long lastRevision = -1;
     bool backing;
     bool enabled = true;
     public bool Enabled { get => enabled; set { enabled = value; foreach (var watcher in DebugWatcher.Watchers.Values) watcher.isEnabled = value; } }
@@ -45,7 +56,17 @@ public sealed class DebugWindow : IDisposable
     public DebugValue? SelectedValue => selected;
     public void SaveFrame(string path) => (window ?? throw new InvalidOperationException("Open the debugger first.")).SaveFrame(path);
     public void DispatchClick(int x, int y) => (window ?? throw new InvalidOperationException("Open the debugger first.")).DispatchClick(x, y);
+    public void DispatchKey(Keys key) => (window ?? throw new InvalidOperationException("Open the debugger first.")).DispatchKey(key);
+    public void DispatchDrag(int fromX, int fromY, int toX, int toY) => (window ?? throw new InvalidOperationException("Open the debugger first.")).DispatchDrag(fromX, fromY, toX, toY);
     public VisualizationMode VisualizationMode => plot.Mode;
+    internal HistoryPlot Plot => plot;
+    internal HistoryRangeSlider HistoryRange => range;
+    internal Textbox HistoryMinimumInput => rangeMin;
+    internal Textbox HistoryMaximumInput => rangeMax;
+    internal Textbox ValueInput => edit;
+    internal NativeWindow Surface => window!;
+    internal IReadOnlyList<TextElement> TreeRows => rows.Where(row => row.isVisible).ToArray();
+    internal global::ProjectZ.Shared.Drawing.UI.Input.Button PropertyHookButton => hook;
     public void Show()
     {
         if (IsVisible || thread is { IsAlive: true }) return;
@@ -76,8 +97,10 @@ public sealed class DebugWindow : IDisposable
         {
             if (closeRequested) surface.Exit();
             if (lastWidth != surface.Width || lastHeight != surface.Height) Layout();
-            if (Environment.TickCount64 >= nextRefresh) { RefreshRows(); nextRefresh = Environment.TickCount64 + 250; }
-            summary.Text = plot.Summary; events.Text = plot.EventText;
+            if (lastRevision != DebugWatcher.Revision || Environment.TickCount64 >= nextRefresh)
+            { RefreshRows(); lastRevision = DebugWatcher.Revision; nextRefresh = Environment.TickCount64 + 250; }
+            summary.Text = plot.Summary + (selected is null ? "" : " · " + ObservationText(selected)); events.Text = plot.EventText;
+            UpdateHookButton(); SyncRangeEditors();
             events.isVisible = plot.Mode == VisualizationMode.Events || Visualization.Normalize(new(DateTime.UtcNow, selected?.Value)).Kind == ValueKind.Text;
         };
         return surface;
@@ -102,25 +125,84 @@ public sealed class DebugWindow : IDisposable
         }));
         actionButtons.Add(w.Button("Also set _field", 815, 650, 155, () => { backing = !backing; status.Text = "Also set backing field: " + backing; }));
         actionButtons.Add(w.Button("Add Watch", 980, 650, 130, () => { if (selected?.Value is { } obj && !obj.GetType().IsValueType && obj is not string) { var watcher = DebugWatcher.WatchStaticObject(obj, selected.Name); if (selectedOwner?.OwnerScene is { } scene) watcher.AttachScene(scene); watcher.StartSession(); RefreshRows(); } }));
-        lower = Range(345, 700, 365, 0); upper = Range(735, 700, 365, 100);
-        lower.ValueChanged += n => { if (lower.Value >= upper.Value) lower.Value = Math.Max(0, upper.Value - 1); plot.Lower = lower.Value / 100d; };
-        upper.ValueChanged += n => { if (upper.Value <= lower.Value) upper.Value = Math.Min(100, lower.Value + 1); plot.Upper = upper.Value / 100d; };
-        w.Button("View", 345, 60, 90, () => { plot.Mode = (VisualizationMode)(((int)plot.Mode + 1) % 4); status.Text = "View: " + plot.Mode; });
-        w.Button("Invert spatial", 445, 60, 125, () => plot.Invert = !plot.Invert);
-        w.Label("Compact gaps", 585, 65, 115, 10);
+        BuildHistoryRange();
+        toolbar.Add((w.Button("View", 345, 60, 80, () => { plot.Mode = (VisualizationMode)(((int)plot.Mode + 1) % 4); status.Text = "View: " + plot.Mode; }), 80, 0));
+        toolbar.Add((w.Button("Invert spatial", 435, 60, 115, () => plot.Invert = !plot.Invert), 115, 0));
+        toolbar.Add((w.Label("Compact gaps", 560, 65, 105, 10), 105, 5));
         compression = Range(705, 64, 185, 0);
         compression.ValueChanged += n => plot.Compression = compression.Value / 100d;
-        w.Button("Sampling profile", 905, 60, 155, () => { Utils.Profile = (Utils.DebugProfile)(((int)Utils.Profile + 1) % 5); status.Text = $"{Utils.Profile}: {Utils.FramesPerSecond} Hz"; });
+        toolbar.Add((compression, 120, 4));
+        hook = w.Button("Hook get/set", 800, 60, 140, TogglePropertyHook); toolbar.Add((hook, 140, 0));
+        toolbar.Add((w.Button("Sampling profile", 950, 60, 150, () => { Utils.Profile = (Utils.DebugProfile)(((int)Utils.Profile + 1) % 5); status.Text = $"Field sampling: {Utils.Profile}, {Utils.FramesPerSecond} Hz. Hooks and notifications capture each change."; }), 150, 0));
         status = w.Label("Select a value. Expand objects on demand. Drag the divider to resize the tree.", 12, 752, 1180, 10);
         w.Scene.OnMouseWheel += (delta, point) => { if (point.X < treeWidth) { scroll = Math.Max(0, scroll - delta / 120 * 3); RefreshRows(); } };
         w.Scene.OnMouseDrag += (point, start) => { if (Math.Abs(start.X - treeWidth) < 8) { treeWidth = Math.Clamp(point.X, 230, Math.Min(650, w.Width - 400)); Layout(); } };
         w.Scene.OnKeyDown += (key, keyboard) =>
         {
             if (key == Keys.Escape && targetControls.Count > 0) HideTargets();
-            if (key == Keys.Down && !edit.isSelected && !filter.isSelected) SelectRelative(1);
-            if (key == Keys.Up && !edit.isSelected && !filter.isSelected) SelectRelative(-1);
+            bool inTree = !edit.isSelected && !filter.isSelected && !range.isSelected && !rangeMin.isSelected && !rangeMax.isSelected;
+            if (key == Keys.Down && inTree) SelectRelative(1);
+            if (key == Keys.Up && inTree) SelectRelative(-1);
+            if ((key == Keys.Left || key == Keys.Right) && selected is not null && inTree)
+                SetExpanded(selectedOwner!, selected, key == Keys.Right);
         };
         Layout(); RefreshRows();
+    }
+    void BuildHistoryRange()
+    {
+        using var source = typeof(DebugWindow).Assembly.GetManifestResourceStream("Inspector.Wpf.xaml")!;
+        var wpf = new XmlDocument(); wpf.Load(source);
+        var declaration = (XmlElement)wpf.SelectSingleNode("//*[local-name()='RangeSlider' and @*[local-name()='Name']='Slider']")!;
+        var native = new XmlDocument(); var root = (XmlElement)native.ImportNode(declaration, true); native.AppendChild(root);
+        foreach (XmlAttribute attribute in wpf.DocumentElement!.Attributes)
+            if (attribute.Prefix == "xmlns" || attribute.Name == "xmlns") root.SetAttribute(attribute.Name, attribute.Value);
+        var parser = new SceneXamlParser(window!.Scene);
+        parser.RegisterFactory("RangeSlider", xml => new HistoryRangeSlider(window.Scene, xml));
+        range = (HistoryRangeSlider)parser.Parse(native.OuterXml); window.Add(range);
+        minLabel = window.Label("Min %", 0, 0, 43, 10); maxLabel = window.Label("Max %", 0, 0, 46, 10);
+        rangeMin = window.Input(0, 0, 62, "0"); rangeMax = window.Input(0, 0, 62, "100");
+        range.RangeChanged += () => { plot.Lower = range.LowerValue / 100; plot.Upper = range.UpperValue / 100; SyncRangeEditors(); };
+        void ReadRange(Textbox input, bool lower)
+        {
+            if (syncingRange || !double.TryParse(input.Text, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value)) return;
+            if (lower) range.LowerValue = value; else range.UpperValue = value;
+        }
+        rangeMin.OnTextChanged += _ => ReadRange(rangeMin, true); rangeMax.OnTextChanged += _ => ReadRange(rangeMax, false);
+        foreach (var input in new[] { rangeMin, rangeMax }) input.OnKeyDown += (key, _) =>
+        {
+            if (key == Keys.Enter) { window.Scene.FocusElement(range); SyncRangeEditors(); }
+        };
+    }
+    void SyncRangeEditors()
+    {
+        if (rangeMin is null) return;
+        syncingRange = true;
+        try
+        {
+            string minimum = range.LowerValue.ToString("0.##", CultureInfo.InvariantCulture), maximum = range.UpperValue.ToString("0.##", CultureInfo.InvariantCulture);
+            if (!rangeMin.isSelected && rangeMin.Text != minimum) rangeMin.Text = minimum;
+            if (!rangeMax.isSelected && rangeMax.Text != maximum) rangeMax.Text = maximum;
+        }
+        finally { syncingRange = false; }
+    }
+    static string ObservationText(DebugValue value) => value.ObservationMode switch
+    {
+        ValueObservationMode.PropertyHook => "Getter/setter hook", ValueObservationMode.ChangeNotification => "Change notifications", _ => "Sampled"
+    };
+    void UpdateHookButton()
+    {
+        if (hook is null) return;
+        hook.isEnabled = selected?.CanHookProperty == true;
+        string text = selected?.ObservationMode == ValueObservationMode.PropertyHook ? "Unhook property" : "Hook get/set";
+        if (hook.Text != text) hook.Text = text;
+        hook.Opacity = hook.isEnabled ? 1 : .45f;
+    }
+    void TogglePropertyHook()
+    {
+        if (selected is null) return;
+        if (selected.ObservationMode == ValueObservationMode.PropertyHook) { selected.DisablePropertyHooks(); status.Text = "Accessor hooks removed. " + ObservationText(selected); }
+        else status.Text = selected.TryEnablePropertyHooks(out var error) ? "Capturing property access immediately. Already inlined calls may bypass hooks." : "Hook unavailable: " + error;
+        UpdateHookButton();
     }
     Trackbar Range(float x, float y, float width, double value)
     {
@@ -132,15 +214,23 @@ public sealed class DebugWindow : IDisposable
     {
         var w = window!; lastWidth = w.Width; lastHeight = w.Height;
         float left = treeWidth + 15, width = Math.Max(200, w.Width - left - 20);
-        plot.Position = new(left, 102); plot.Size = new(width, Math.Max(100, w.Height - 282));
+        float toolX = left; int toolRow = 0;
+        foreach (var (control, preferredWidth, offset) in toolbar)
+        {
+            if (toolX > left && toolX + preferredWidth > left + width) { toolRow++; toolX = left; }
+            control.Position = new(toolX, 60 + toolRow * 34 + offset); control.Size = new(preferredWidth, control.Size.Y); toolX += preferredWidth + 10;
+        }
+        float plotTop = 102 + toolRow * 34;
+        plot.Position = new(left, plotTop); plot.Size = new(width, Math.Max(100, w.Height - plotTop - 180));
         title.Position = new(left, 16); summary.Position = new(left, 44);
         title.Size = new(width, 32); summary.Size = new(width, 28);
         edit.Position = new(left, w.Height - 163); edit.Size = new(width, 30);
         float actionX = left;
         foreach (var button in actionButtons) { button.Position = new(actionX, w.Height - 120); button.Size = new(Math.Min(button.Size.X, width / 3 - 8), 30); actionX += button.Size.X + 10; }
-        lower.Position = new(left, w.Height - 63); upper.Position = new(left + width / 2, w.Height - 63);
-        lower.Size = upper.Size = new(width / 2 - 10, 22);
-        events.Position = new(left + 15, 120); events.Size = new(width - 30, Math.Max(80, w.Height - 282));
+        minLabel.Position = new(left, w.Height - 72); rangeMin.Position = new(left + 43, w.Height - 77); rangeMin.Size = new(64, 30);
+        maxLabel.Position = new(left + width - 109, w.Height - 72); rangeMax.Position = new(left + width - 64, w.Height - 77); rangeMax.Size = new(64, 30);
+        range.Position = new(left + 115, w.Height - 77); range.Size = new(Math.Max(30, width - 230), 30);
+        events.Position = new(left + 15, plotTop + 18); events.Size = new(width - 30, Math.Max(80, plot.Size.Y - 36));
         status.Position = new(12, w.Height - 28); status.Size = new(w.Width - 24, 24);
         RefreshRows();
     }
@@ -157,6 +247,7 @@ public sealed class DebugWindow : IDisposable
         if (window is null) return;
         plot.Timeline = value.Timeline; title.Text = owner.Name + "." + value.Name;
         edit.Text = ValueTimeline.Format(value.Value); status.Text = value.Error ?? (value.CanWrite ? "Live editing available" : "Read-only value");
+        UpdateHookButton(); RefreshRows();
     }
     void RefreshRows()
     {
@@ -166,12 +257,20 @@ public sealed class DebugWindow : IDisposable
         foreach (var watcher in DebugWatcher.Watchers.Values.Where(w => !w.isChild)) AppendWatcher(watcher);
         void AppendWatcher(DebugWatcher watcher)
         {
-            if (!watcher.isChild) all.Add((watcher, null, 0, watcher.Name));
+            if (!watcher.isChild)
+            {
+                all.Add((watcher, null, 0, (collapsedRoots.Contains(watcher.Guid) ? "▸ " : "▾ ") + watcher.Name));
+                if (collapsedRoots.Contains(watcher.Guid)) return;
+            }
             foreach (var value in watcher.Values)
             {
                 if (string.IsNullOrWhiteSpace(filter.Text) || (value.Name + " " + watcher.Name).Contains(filter.Text, StringComparison.OrdinalIgnoreCase))
                     all.Add((watcher, value, watcher.Depth + 1, $"{value.Name}: {value.Error ?? ValueTimeline.Format(value.Value)}"));
-                if (expanded.Contains(value.Guid)) foreach (var child in watcher.Children.Where(c => c.ParentValueGuid == value.Guid)) AppendWatcher(child);
+                if (expanded.Contains(value.Guid))
+                {
+                    var child = watcher.Expand(value);
+                    if (child is not null) AppendWatcher(child); else expanded.Remove(value.Guid);
+                }
             }
         }
         scroll = Math.Clamp(scroll, 0, Math.Max(0, all.Count - 1));
@@ -186,21 +285,25 @@ public sealed class DebugWindow : IDisposable
                 var created = new TextElement(window.Scene) { Font = global::ProjectZ.Shared.Content.Fonts.SegoeUI.get_GetResourceName(10), Clip = true };
                 created.MouseLeftClick += p =>
                 {
-                    if (index >= rowTargets.Count || rowTargets[index].Value is not { } value) return;
+                    if (index >= rowTargets.Count) return;
                     var owner = rowTargets[index].Owner;
+                    if (rowTargets[index].Value is not { } value)
+                    {
+                        if (!collapsedRoots.Remove(owner.Guid)) collapsedRoots.Add(owner.Guid);
+                        RefreshRows(); return;
+                    }
                     Select(owner, value);
                     // Mouse click coordinates are local to this row.
                     if (p.X < 18)
                     {
-                        try { if (!expanded.Remove(value.Guid) && owner.Expand(value) is not null) expanded.Add(value.Guid); } catch (Exception ex) { status.Text = ex.Message; }
-                        RefreshRows();
+                        SetExpanded(owner, value, !expanded.Contains(value.Guid));
                     }
                 };
                 rows.Add(window.Add(created));
             }
             var row = rows[rowIndex];
             float x = 12 + Math.Min(entry.Depth, 4) * 12, y = 102 + rowIndex * 25;
-            var text = entry.Value is null ? entry.Text : "+ " + entry.Text;
+            var text = entry.Value is null ? entry.Text : (entry.Owner.CanExpand(entry.Value) ? expanded.Contains(entry.Value.Guid) ? "▾ " : "▸ " : "  ") + entry.Text;
             if (row.Text != text) row.Text = text;
             row.Position = new(x, y); row.Size = new(treeWidth - x - 6, 24);
             row.ForegroundColor = entry.Value == selected ? new Color(84, 218, 195) : entry.Value is null ? Color.White : new Color(183, 199, 211);
@@ -209,6 +312,20 @@ public sealed class DebugWindow : IDisposable
         // Keep scene registrations alive across periodic updates. Removing and
         // re-adding after Scene.Tick left the next rendered frame without rows.
         for (int index = visible.Length; index < rows.Count; index++) rows[index].isVisible = false;
+    }
+    void SetExpanded(DebugWatcher owner, DebugValue value, bool open)
+    {
+        try
+        {
+            if (!open) expanded.Remove(value.Guid);
+            else if (owner.CanExpand(value))
+            {
+                if (owner.Expand(value) is not null) expanded.Add(value.Guid);
+                else status.Text = "The watcher expansion limit has been reached.";
+            }
+        }
+        catch (Exception ex) { status.Text = ex.Message; }
+        RefreshRows();
     }
     sealed record WatchTarget(string Name, Func<object?> Resolve, Type? StaticType = null);
     void ToggleTargets()
@@ -257,7 +374,7 @@ public sealed class DebugWindow : IDisposable
     {
         if (pump is not null && hostScene is not null) hostScene.FrameUpdated -= pump;
         pump = null; window?.Dispose(); window = null;
-        rows.Clear(); rowTargets.Clear(); actionButtons.Clear(); targetControls.Clear();
+        rows.Clear(); rowTargets.Clear(); actionButtons.Clear(); toolbar.Clear(); targetControls.Clear();
     }
     public void Dispose() { Close(); if (hostScene is null) thread?.Join(TimeSpan.FromSeconds(3)); else DisposeSurface(); }
 }
