@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>2026.10.24.1</Version>
-    <ProjectZVersion>2026.10.23.2</ProjectZVersion>
+    <Version>2026.11.20.1</Version>
+    <ProjectZVersion>2026.11.20.1</ProjectZVersion>
     <Product>heirowDebug 2026</Product>
     <Company>heirow</Company>
     <Copyright>Copyright © heirow 2026</Copyright>

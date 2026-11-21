@@ -5,7 +5,7 @@
 Native Project-Z live debugging for .NET 10 Windows applications. This package
 is maintained beside `heirowDebug.WPF` in the same repository. The inspector,
 launcher/injector and protection tool use Project-Z scenes and native controls.
-It depends on the publicly published `ProjectZ 2026.10.23.2` package.
+It depends on the publicly published `ProjectZ 2026.11.20.1` package.
 
 ![Native Project-Z debugger: live timelines, spatial traces and boolean states](https://raw.githubusercontent.com/hheiroww/heirowDebug/main/Assets/heirowDebug-ProjectZ-demo.gif?v=2026.10.23.5)
 
