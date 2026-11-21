@@ -8,6 +8,7 @@ param(
  [Parameter(Mandatory)][string]$HeirowUpdater,
  [Parameter(Mandatory)][string]$SigningKey,
  [string]$PackageCache,
+ [string]$LegalDocumentsDirectory,
  [switch]$PayloadOnly
 )
 $ErrorActionPreference='Stop'
@@ -26,12 +27,24 @@ $products=@(
  @{Id='heirowDotNetShield';Name='heirowDotNetShield 2026';Folder='heirowDotNetShield';Project='heirowDotNetShield/heirowDotNetShield.csproj';Exe='heirowDotNetShield.exe';InnoId='heirow.heirowDotNetShield';Icon='heirowDotNetShield.ico'},
  @{Id='heirowDebug.ProjectZ';Name='heirowDebug Project-Z';Folder='heirowDebug-ProjectZ';Project='heirowDebug.ProjectZ.Tools/heirowDebug.ProjectZ.Tools.csproj';Exe='heirowDebug.ProjectZ.Tools.exe';InnoId='heirow.heirowDebug.ProjectZ';Icon='heirowDebug-ProjectZ.ico'}
 )
+$legalByProduct=@{}
+if(-not $PayloadOnly){
+ if(-not $LegalDocumentsDirectory){throw 'Supply the reviewed product documents with -LegalDocumentsDirectory.'}
+ foreach($product in $products){
+  $path=Join-Path $LegalDocumentsDirectory ($product.Id+'.json')
+  $legal=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json
+  if(-not $legal.privacyPolicy.content -or -not $legal.termsAndConditions.content){
+   throw "Reviewed Privacy Policy and Terms and Conditions are required for $($product.Id)."
+  }
+  $legalByProduct[$product.Id]=$legal
+ }
+}
 $receipts=@()
 foreach($product in $products){
  $payload=Join-Path $payloadRoot $product.Folder
  $setup=Join-Path $releaseRoot "$($product.Folder)-$Version-windows-x64-Setup.exe"
  if(Test-Path -LiteralPath $setup){throw 'An immutable setup already exists; use a new release version.'}
- $publishArgs=@('publish',(Join-Path $repo $product.Project),'-c','Release','-r','win-x64','--self-contained','true','-m:1','-nodeReuse:false','-p:UseSharedCompilation=false',"-p:Version=$Version",'-p:DebugType=embedded','-p:CopyOutputSymbolsToPublishDirectory=false','-o',$payload,'--nologo')
+ $publishArgs=@('publish',(Join-Path $repo $product.Project),'-c','Release','-r','win-x64','--self-contained','true','-m:1','-nodeReuse:false','-p:UseSharedCompilation=false','-p:GeneratePackageOnBuild=false',"-p:Version=$Version",'-p:DebugType=embedded','-p:CopyOutputSymbolsToPublishDirectory=false','-o',$payload,'--nologo')
  if($PackageCache){$publishArgs+="-p:RestorePackagesPath=$([IO.Path]::GetFullPath($PackageCache))"}
  & dotnet @publishArgs
  if($LASTEXITCODE -ne 0){throw "Application publish failed: $($product.Id)"}
@@ -51,6 +64,7 @@ foreach($product in $products){
   description='Self-contained Windows application with optional updates.'
   installDirectory=('{LocalAppData}/Programs/heirow/'+$product.Folder);entryPoint=$product.Exe
   homepage='https://github.com/hheiroww/heirowDebug'
+  legalDocuments=$legalByProduct[$product.Id]
   updateUrl=('https://socketjack.com/installers/'+$product.Id+'/update.json')
   features=@(@{id='updates';name='Application updates';description='Check for updates after the application exits.';required=$false;default=$true})
   updateCompanion=@{feature='updates';mode='after-exit';authApplication='heirowinstaller';credentialOrigin='https://socketjack.com';tokenEnvironmentVariable='HEIROWUPDATER_TOKEN';cookieEnvironmentVariable='HEIROWUPDATER_COOKIE'}

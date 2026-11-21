@@ -2,7 +2,11 @@
 
 New standalone installers are built with `tools/Build-Installers.ps1`. Supply
 the published heirowInstaller CLI, launcher and companion, the selected original
-Inno compiler, and the package-signing key from outside the repository. The
+Inno compiler, and the package-signing key from outside the repository. Pass
+`-LegalDocumentsDirectory` with one JSON file per product ID containing the
+reviewed publisher Privacy Policy and Terms and Conditions. Each file uses
+`privacyPolicy` and `termsAndConditions` objects with their URL and full content.
+The
 script publishes all three apps with their .NET runtime, preserves each original
 Inno upgrade identity, then creates signed standalone Project-Z setup EXEs. The
 recipient does not need heirowInstaller installed. The optional **Application
