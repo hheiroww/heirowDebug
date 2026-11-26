@@ -1,8 +1,9 @@
 # Windows installation
 
 New standalone installers are built with `tools/Build-Installers.ps1`. Supply
-the published heirowInstaller CLI, launcher and companion, the selected original
-Inno compiler, and the package-signing key from outside the repository. Pass
+the published heirowInstaller CLI and launcher, standalone heirowUpdater 2026.11.26.1
+or later, the selected original Inno compiler, and the package-signing key from
+outside the repository. Pass
 `-LegalDocumentsDirectory` with one JSON file per product ID containing the
 reviewed publisher Privacy Policy and Terms and Conditions. Each file uses
 `privacyPolicy` and `termsAndConditions` objects with their URL and full content.
@@ -11,8 +12,16 @@ Inno upgrade identity, then creates signed standalone Project-Z setup EXEs. The
 recipient does not need heirowInstaller installed. The optional **Application
 updates** feature places `heirowUpdater.exe` and its generated profile at each
 app's root. The app starts it and the companion checks after exit, offering
-**Update now** or **Postpone**. Release publication must upload these new EXEs
-and advance their matching SocketJack publisher feeds together.
+**Update now** or **Postpone**. The companion can reuse a supplied session for
+protected downloads and keeps sign-in in the application or on the website.
+Release publication keeps each setup and its SocketJack update feed in sync.
+
+For a companion-only installer refresh, use
+`scripts/Update-SignedApplicationCompanion.ps1` from the corresponding
+heirowInstaller source release with `-Backend LegacyExecutable`. Use the
+reviewed signed baseline for each product. This gives the signed installer
+package a new version while preserving the exact shipped Inno backend,
+application binaries, existing update profile and publisher identity.
 
 The current [2026.10.23.5 release](https://github.com/hheiroww/heirowDebug/releases/tag/v2026.10.23.5)
 includes self-contained Windows x64 portable ZIPs for the native Project-Z tools

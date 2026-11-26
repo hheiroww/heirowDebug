@@ -18,6 +18,14 @@ if($Version -notmatch '^\d+\.\d+\.\d+\.\d+$'){throw 'A four-part release version
 foreach($inputPath in @($InnoCompiler,$HeirowInstallerCli,$HeirowInstallerLauncher,$HeirowUpdater,$SigningKey)){
  if(-not(Test-Path -LiteralPath $inputPath -PathType Leaf)){throw 'A required build tool or signing input is missing.'}
 }
+if(-not $PayloadOnly){
+ $companionVersion=$null
+ $companionFile=Get-Item -LiteralPath $HeirowUpdater
+ if(-not [version]::TryParse($companionFile.VersionInfo.FileVersion,[ref]$companionVersion) -or
+    $companionVersion -lt [version]'2026.11.26.1'){
+  throw 'Supply the published standalone heirowUpdater 2026.11.26.1 or later.'
+ }
+}
 $payloadRoot=Join-Path $repo "artifacts/publish-$Version"
 $backendRoot=Join-Path $repo "artifacts/backend-$Version"
 $releaseRoot=Join-Path $repo "artifacts/release-$Version"
